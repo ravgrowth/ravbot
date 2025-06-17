@@ -1,0 +1,43 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background-color: #0e0e0e;
+  color: white;
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.dashboard-header {
+  padding: 2rem;
+  background-color: #121212;
+  border-bottom: 1px solid #333;
+}
+
+.task-panel {
+  flex: 1;
+  padding: 2rem;
+}
+
+.task-panel ul {
+  list-style: none;
+  padding: 0;
+}
+
+.task-panel li {
+  padding: 1rem;
+  background-color: #1e1e1e;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+}
+
+.dashboard-footer {
+  text-align: center;
+  padding: 1rem;
+  background-color: #121212;
+  border-top: 1px solid #333;
+  font-size: 0.9rem;
+}
