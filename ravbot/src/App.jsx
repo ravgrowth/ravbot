@@ -1,34 +1,26 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <div className="dashboard">
+      <header className="dashboard-header">
+        <h1>RavBot</h1>
+        <p>Your Wealth Execution AI</p>
+      </header>
+
+      <main className="task-panel">
+        <h2>Today’s Wealth Tasks</h2>
+        <ul>
+          <li>✅ Review your net worth</li>
+          <li>📈 Run a 1-click DCA into BTC/ETH</li>
+          <li>📤 Pay down $20 of high-interest debt</li>
+        </ul>
+      </main>
+
+      <footer className="dashboard-footer">
+        <p>app.ravgrowth.com | Powered by RavGrowth</p>
+      </footer>
+    </div>
   )
 }
 
