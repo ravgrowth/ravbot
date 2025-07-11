@@ -66,41 +66,31 @@ export default function Login() {
         <button
           onClick={async () => {
             const { data: userData, error: lookupError } = await supabase.auth.admin.getUserByEmail(email);
-              if (lookupError || !userData?.user) {
-                setMsg("No account found with this email.");
-                setMsgColor("red");
-                return;
-              }
 
-              if (!userData.user.confirmed_at) {
-                setMsg("This email hasn't been confirmed yet. Check your inbox for the signup confirmation.");
-                setMsgColor("red");
-                return;
-              }
+            if (lookupError || !userData?.user) {
+              setMsg("No account found with this email.");
+              setMsgColor("red");
+              return;
+            }
 
-              const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: "https://app.ravgrowth.com/reset"
-              });
+            if (!userData.user.confirmed_at) {
+              setMsg("This email hasn't been confirmed yet. Check your inbox for the signup confirmation.");
+              setMsgColor("red");
+              return;
+            }
 
-              if (error) {
-                setMsg(error.message);
-                setMsgColor("red");
-              } else {
-                const now = new Date();
-                const timestamp = now.toLocaleString();
-                setMsg(`Reset link sent to your email. (${timestamp})`);
-                setMsgColor("cyan");
-              }
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+              redirectTo: "https://app.ravgrowth.com/reset"
             });
 
             if (error) {
               setMsg(error.message);
-              setMsgColor('red');
+              setMsgColor("red");
             } else {
               const now = new Date();
               const timestamp = now.toLocaleString();
               setMsg(`Reset link sent to your email. (${timestamp})`);
-              setMsgColor('cyan');
+              setMsgColor("cyan");
             }
           }}
         >
