@@ -7,31 +7,31 @@ export default function Reset() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    setTimeout(() => {
-      console.log("Full URL:", window.location.href);
-      console.log("Hash:", window.location.hash);
-
+    const timeout = setTimeout(() => {
       const hash = window.location.hash;
       const isRecovery = hash.includes("access_token") && hash.includes("type=recovery");
+
+      console.log("URL:", window.location.href);
+      console.log("Hash:", hash);
 
       if (!isRecovery) {
         setStatus("Invalid recovery link");
         return;
       }
 
-      // Ask Supabase for the user
+      // Give Supabase time to auto-login
       supabase.auth.getUser().then(({ data, error }) => {
-        console.log("USER:", data?.user);
-        console.log("ERROR:", error);
-
         if (data?.user?.email) {
           setEmail(data.user.email);
           setStatus("Enter your new password");
         } else {
-          setStatus("Could not load user.");
+          console.log("Supabase getUser error:", error);
+          setStatus("Could not load user. Please refresh after a few seconds.");
         }
       });
-    }, 500); // half second delay
+    }, 999); // 🕐 Delay 999 time units idk how long they are for Supabase to finish auto-login
+
+    return () => clearTimeout(timeout);
   }, []);
 
   const handleReset = async () => {
