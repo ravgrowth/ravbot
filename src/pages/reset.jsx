@@ -7,29 +7,23 @@ export default function Reset() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const access_token = url.searchParams.get('access_token');
-    const refresh_token = url.searchParams.get('refresh_token');
-    const type = url.searchParams.get('type');
+    const params = new URLSearchParams(window.location.search);
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    const type = params.get('type');
 
-    if (access_token && refresh_token && type === 'recovery') {
-      supabase.auth.setSession({ access_token, refresh_token }).then(({ error }) => {
-        if (error) {
-          console.error("Error setting session:", error.message);
-          setStatus("Could not set session");
-        } else {
-          supabase.auth.getUser().then(({ data, error }) => {
-            if (data?.user?.email) {
-              setEmail(data.user.email);
-              setStatus("Enter your new password");
-            } else {
-              setStatus("User not found. Refresh?");
-            }
-          });
-        }
-      });
+    if (access_token && type === 'recovery') {
+      supabase.auth
+        .setSession({ access_token, refresh_token })
+        .then(({ data, error }) => {
+          if (error) {
+            console.error("Error setting session:", error);
+          } else {
+            console.log("Session set:", data);
+          }
+        });
     } else {
-      setStatus("Invalid or expired recovery link.");
+      console.error("Missing or invalid token");
     }
   }, []);
 
