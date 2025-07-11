@@ -17,7 +17,7 @@ export default function Reset() {
     const refresh_token = params.get("refresh_token");
     const type = params.get("type");
 
-    console.log("Params:", { access_token, refresh_token, type }); // ✅ Now it's safe
+    console.log("Params:", { access_token, refresh_token, type }); // ✅ This is safe
 
     if (access_token) {
       supabase.auth.setSession({ access_token, refresh_token: refresh_token || '' })
@@ -38,13 +38,10 @@ export default function Reset() {
     }
   }, []);
 
-  console.log("Params:", { access_token, refresh_token, type });
-
   const handleReset = async () => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return setStatus(error.message);
     setStatus("Password reset! You can log in now.");
-    console.log("Params:", { access_token, refresh_token, type });
   };
 
   return (
