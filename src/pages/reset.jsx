@@ -8,6 +8,9 @@ export default function Reset() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('RAW LOCATION:', window.location.href);
+    console.log('HASH:', window.location.hash);
+    
     let params = new URLSearchParams(window.location.search);
     if (!params.get("access_token")) {
       params = new URLSearchParams(window.location.hash.slice(1));
@@ -17,7 +20,7 @@ export default function Reset() {
     const refresh_token = params.get("refresh_token");
     const type = params.get("type");
 
-    console.log("Params:", { access_token, refresh_token, type }); // ✅ This is safe
+    console.log("Parsed Params:", { access_token, refresh_token, type });
 
     if (access_token) {
       supabase.auth.setSession({ access_token, refresh_token: refresh_token || '' })
