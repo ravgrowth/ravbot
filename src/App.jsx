@@ -1,41 +1,55 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import Dashboard from './pages/dashboard.jsx';
-import Login from './pages/login.jsx';
+import { Routes, Route, useLocation } from "react-router-dom";
+import Login from "./pages/login.jsx";
+import Reset from "./pages/reset.jsx";
+import Dashboard from "./pages/dashboard.jsx";
 
-function App() {
+function AppWrapper() {
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);
-  const path = window.location.pathname;
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data: sessionData, error } = await supabase.auth.getSession();
+      const hash = window.location.hash;
+      const isRecovery = hash.includes("type=recovery");
 
-      console.log("Checking session for path:", path);
-      console.log("Session data:", sessionData);
-
-      if (error) {
-        console.error("Session check failed:", error.message);
+      if (isRecovery) {
+        setRecoveryMode(true);
+        // wait for Supabase to auto-login user
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          setSession(sessionData.session);
+        }
         setChecking(false);
         return;
       }
 
+      // regular auth check
+      const { data: sessionData } = await supabase.auth.getSession();
       setSession(sessionData.session);
       setChecking(false);
-
-      if (sessionData.session && (path === "/" || path === "/login")) {
-        window.location.href = "/dashboard";
-      }
     };
 
     checkSession();
-  }, [path]);
+  }, []);
 
   if (checking) return <p>Loading...</p>;
+  if (recoveryMode) return <Reset />;
 
-  if (path === "/dashboard") return <Dashboard />;
-  return <Login />;
+  return (
+    <Routes>
+      <Route path="/" element={session ? <Dashboard /> : <Login />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/dashboard" element={session ? <Dashboard /> : <Login />} />
+      <Route path="/reset/*" element={<Reset />} />
+    </Routes>
+  );
 }
 
-export default App;
+export default function App() {
+  return <AppWrapper />;
+}
