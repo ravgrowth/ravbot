@@ -25,9 +25,9 @@ export default function Dashboard() {
       <p>Logged in as: {session.user.email}</p>
       <button onClick={async () => {
         await supabase.auth.signOut();
-        window.location.href = '/';
+        window.location.href = "/login";
       }}>
-        Logout
+        Log Out
       </button>
     </div>
   );
