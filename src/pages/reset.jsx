@@ -8,6 +8,7 @@ export default function Reset() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("Params:", { access_token, refresh_token, type });
     let params = new URLSearchParams(window.location.search);
     if (!params.get("access_token")) {
       params = new URLSearchParams(window.location.hash.slice(1));
@@ -17,7 +18,7 @@ export default function Reset() {
     const refresh_token = params.get("refresh_token");
     const type = params.get("type");
 
-    if (access_token && type === "recovery") {
+    if (access_token) {
       supabase.auth.setSession({ access_token, refresh_token: refresh_token || '' })
         .then(({ data, error }) => {
           setLoading(false);
@@ -25,7 +26,7 @@ export default function Reset() {
             console.error("Error setting session:", error);
           } else {
             console.log("Session set:", data);
-            supabase.auth.getUser().then(({ data: userData, error: userError }) => {
+            supabase.auth.getUser().then(({ data: userData }) => {
               if (userData?.user?.email) setEmail(userData.user.email);
             });
           }
@@ -36,10 +37,13 @@ export default function Reset() {
     }
   }, []);
 
+  console.log("Params:", { access_token, refresh_token, type });
+
   const handleReset = async () => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) return setStatus(error.message);
     setStatus("Password reset! You can log in now.");
+    console.log("Params:", { access_token, refresh_token, type });
   };
 
   return (
