@@ -7,7 +7,7 @@ export default function Reset() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    const timeout = setTimeout(() => {
+    const timeout = setTimeout(async () => {
       const hash = window.location.hash;
       const isRecovery = hash.includes("access_token") && hash.includes("type=recovery");
 
@@ -19,20 +19,24 @@ export default function Reset() {
         return;
       }
 
-      // Give Supabase time to auto-login
-      supabase.auth.getUser().then(({ data, error }) => {
-        if (data?.user?.email) {
-          setEmail(data.user.email);
-          setStatus("Enter your new password");
-        } else {
-          console.log("Supabase getUser error:", error);
-          setStatus("Could not load user. Please refresh after a few seconds.");
-        }
-      });
-    }, 999); // 🕐 Delay 999 time units idk how long they are for Supabase to finish auto-login
+      // ✅ Parse hash into session
+      await supabase.auth._saveSession(hash.replace("#", ""));
+
+      // ✅ Now get user after session is saved
+      const { data: userData, error } = await supabase.auth.getUser();
+
+      if (userData?.user?.email) {
+        setEmail(userData.user.email);
+        setStatus("Enter your new password");
+      } else {
+        console.log("Supabase getUser error:", error);
+        setStatus("Could not load user. Please refresh after a few seconds.");
+      }
+    }, 1500);
 
     return () => clearTimeout(timeout);
   }, []);
+
 
   const handleReset = async () => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
