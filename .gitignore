@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.tmp.driveupload/
+.tmp.drivedownload/
+
+node_modules/
+.env
+.DS_Store
+*.log
+.tmp.driveupload/
+public/log
+
+
