@@ -10,9 +10,12 @@ export default function Login() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session && window.location.pathname !== '/dashboard') {
-        window.location.href = '/dashboard';
-      }
+      // Delay check slightly to allow logout to fully clear
+      setTimeout(() => {
+        if (session && window.location.pathname === '/login') {
+          window.location.href = '/dashboard';
+        }
+      }, 300); // 300ms delay
     });
   }, []);
 
