@@ -7,36 +7,31 @@ export default function Reset() {
   const [email, setEmail] = useState('');
 
   useEffect(() => {
-    const timeout = setTimeout(async () => {
-      const hash = window.location.hash;
-      const isRecovery = hash.includes("access_token") && hash.includes("type=recovery");
+    const url = new URL(window.location.href);
+    const access_token = url.searchParams.get('access_token');
+    const refresh_token = url.searchParams.get('refresh_token');
+    const type = url.searchParams.get('type');
 
-      console.log("URL:", window.location.href);
-      console.log("Hash:", hash);
-
-      if (!isRecovery) {
-        setStatus("Invalid recovery link");
-        return;
-      }
-
-      // ✅ Parse hash into session
-      await supabase.auth._saveSession(hash.replace("#", ""));
-
-      // ✅ Now get user after session is saved
-      const { data: userData, error } = await supabase.auth.getUser();
-
-      if (userData?.user?.email) {
-        setEmail(userData.user.email);
-        setStatus("Enter your new password");
-      } else {
-        console.log("Supabase getUser error:", error);
-        setStatus("Could not load user. Please refresh after a few seconds.");
-      }
-    }, 1500);
-
-    return () => clearTimeout(timeout);
+    if (access_token && refresh_token && type === 'recovery') {
+      supabase.auth.setSession({ access_token, refresh_token }).then(({ error }) => {
+        if (error) {
+          console.error("Error setting session:", error.message);
+          setStatus("Could not set session");
+        } else {
+          supabase.auth.getUser().then(({ data, error }) => {
+            if (data?.user?.email) {
+              setEmail(data.user.email);
+              setStatus("Enter your new password");
+            } else {
+              setStatus("User not found. Refresh?");
+            }
+          });
+        }
+      });
+    } else {
+      setStatus("Invalid or expired recovery link.");
+    }
   }, []);
-
 
   const handleReset = async () => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
