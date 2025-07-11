@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from './supabaseClient';
+import { supabase } from '../supabaseClient';
 import { useEffect } from 'react';
 
 export default function Login() {
@@ -10,8 +10,7 @@ export default function Login() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      // Only redirect if NOT already on dashboard
-      if (session && window.location.pathname === '/') {
+      if (session && window.location.pathname !== '/dashboard') {
         window.location.href = '/dashboard';
       }
     });

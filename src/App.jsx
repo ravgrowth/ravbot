@@ -1,5 +1,5 @@
-import Login from './Login';
-import Dashboard from './pages/index.jsx'
+import Login from './pages/login.jsx';
+import Dashboard from './pages/dashboard.jsx'
 
 function App() {
   const path = window.location.pathname;
