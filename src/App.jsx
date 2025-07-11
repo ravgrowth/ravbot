@@ -10,7 +10,10 @@ function App() {
 
   useEffect(() => {
     const checkSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      const { data: sessionData, error } = await supabase.auth.getSession();
+
+      console.log("Checking session for path:", path);
+      console.log("Session data:", sessionData);
 
       if (error) {
         console.error("Session check failed:", error.message);
@@ -18,19 +21,15 @@ function App() {
         return;
       }
 
-      setSession(data.session);
+      setSession(sessionData.session);
       setChecking(false);
 
-      // Redirect if user is logged in and on / or /login
-      if (data.session && (path === "/" || path === "/login")) {
+      if (sessionData.session && (path === "/" || path === "/login")) {
         window.location.href = "/dashboard";
       }
     };
 
-    console.log("Checking session for path:", path);
-    console.log("Session data:", data.session);
     checkSession();
-    
   }, [path]);
 
   if (checking) return <p>Loading...</p>;
