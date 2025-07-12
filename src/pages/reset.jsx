@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../supabaseClient";   // ← up one folder
+import { supabase } from "../supabaseClient";
 
-// Force convert # to ? BEFORE any router strips it
 if (typeof window !== "undefined" && window.location.hash.startsWith("#access_token")) {
   const url = window.location.href.replace("#", "?");
-  window.location.replace(url);  // hard reload with query string
+  window.location.replace(url);
 }
 
 export default function Reset() {
@@ -13,11 +12,10 @@ export default function Reset() {
   const [newPw, setNewPw] = useState("");
 
   useEffect(() => {
-    // show exactly what came in
     console.log("RAW:", window.location.href);
 
-    const hash  = new URLSearchParams(window.location.hash.slice(1));   // after #
-    const query = new URLSearchParams(window.location.search);          // after ?
+    const hash  = new URLSearchParams(window.location.hash.slice(1));
+    const query = new URLSearchParams(window.location.search);
 
     const access  = query.get("access_token")   || hash.get("access_token");
     const refresh = query.get("refresh_token")  || hash.get("refresh_token");
@@ -64,6 +62,24 @@ export default function Reset() {
           <button onClick={handleSave}>Save new password</button>
         </>
       )}
+
+      {/* Always-visible login button */}
+      <div style={{ marginTop: 30 }}>
+        <button
+          onClick={() => window.location.href = "/login"}
+          style={{
+            backgroundColor: "#007aff",
+            color: "white",
+            padding: "10px 20px",
+            borderRadius: "6px",
+            fontWeight: "bold",
+            fontSize: "1rem",
+            cursor: "pointer"
+          }}
+        >
+          Go back to Login
+        </button>
+      </div>
     </div>
   );
 }
