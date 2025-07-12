@@ -74,12 +74,18 @@ export default function Login() {
             } else {
               const now = new Date();
               const timestamp = now.toLocaleString();
-              setMsg(`Reset link sent to your email. (${timestamp})`);
+              setMsg(`If an account with that email exists, a reset link has been sent. (${timestamp})`);
               setMsgColor("cyan");
             }
           }}
         >
           Reset
+        </button>
+      </p>
+      <p>
+        Want to change your email?{' '}
+        <button onClick={() => (window.location.href = '/change-email')}>
+          Change Email
         </button>
       </p>
     </div>

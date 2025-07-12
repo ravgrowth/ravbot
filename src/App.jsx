@@ -4,6 +4,7 @@ import { Routes, Route, useLocation } from "react-router-dom";
 import Login from "./pages/login.jsx";
 import Reset from "./pages/reset.jsx";
 import Dashboard from "./pages/dashboard.jsx";
+import ChangeEmail from './pages/ChangeEmail.jsx';
 
 function AppWrapper() {
   const [session, setSession] = useState(null);
@@ -46,6 +47,7 @@ function AppWrapper() {
       <Route path="/login" element={<Login />} />
       <Route path="/dashboard" element={session ? <Dashboard /> : <Login />} />
       <Route path="/reset/*" element={<Reset />} />
+      <Route path="/change-email" element={<ChangeEmail />} />
     </Routes>
   );
 }
