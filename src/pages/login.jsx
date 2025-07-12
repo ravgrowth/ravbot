@@ -65,7 +65,7 @@ export default function Login() {
         <button
           onClick={async () => {
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-              redirectTo: "https://app.ravgrowth.com/reset"
+              redirectTo: "https://app.ravgrowth.com/reset?"
             });
 
             if (error) {
