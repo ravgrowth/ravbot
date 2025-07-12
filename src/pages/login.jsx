@@ -20,15 +20,15 @@ export default function Login() {
 
   async function handleAuth() {
     if (mode === 'login') {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setMsg(error.message);
         setMsgColor('red');
       } else {
         window.location.href = '/dashboard';
       }
-    } 
-      const { data, error } = await supabase.auth.signUp({ email, password });
+    } else {
+      const { error } = await supabase.auth.signUp({ email, password });
       if (error) {
         if (error.message.includes("already registered")) {
           setMsg("Email already registered. Try logging in.");
@@ -59,6 +59,7 @@ export default function Login() {
           {mode === 'login' ? 'Sign Up' : 'Login'}
         </button>
       </p>
+
       <p>
         Forgot your password?{' '}
         <button
@@ -76,16 +77,6 @@ export default function Login() {
               setMsg(`Reset link sent to your email. (${timestamp})`);
               setMsgColor("cyan");
             }
-
-            if (error) {
-              setMsg(error.message);
-              setMsgColor("red");
-            } else {
-              const now = new Date();
-              const timestamp = now.toLocaleString();
-              setMsg(`Reset link sent to your email. (${timestamp})`);
-              setMsgColor("cyan");
-            }
           }}
         >
           Reset
@@ -93,3 +84,4 @@ export default function Login() {
       </p>
     </div>
   );
+}
