@@ -13,7 +13,8 @@ export default function Reset() {
     
     let params = new URLSearchParams(window.location.search);
     if (!params.get("access_token")) {
-      params = new URLSearchParams(window.location.hash.slice(1));
+      // fallback to hash if nothing in search
+      params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     }
 
     const access_token = params.get("access_token");
