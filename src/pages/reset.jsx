@@ -11,15 +11,12 @@ export default function Reset() {
     console.log('RAW LOCATION:', window.location.href);
     console.log('HASH:', window.location.hash);
     
-    let params = new URLSearchParams(window.location.search);
-    if (!params.get("access_token")) {
-      // fallback to hash if nothing in search
-      params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    }
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const searchParams = new URLSearchParams(window.location.search);
 
-    const access_token = params.get("access_token");
-    const refresh_token = params.get("refresh_token");
-    const type = params.get("type");
+    const access_token = searchParams.get("access_token") || hashParams.get("access_token");
+    const refresh_token = searchParams.get("refresh_token") || hashParams.get("refresh_token");
+    const type = searchParams.get("type") || hashParams.get("type");
 
     console.log("Parsed Params:", { access_token, refresh_token, type });
 
