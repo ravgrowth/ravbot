@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";   // ← up one folder
 
+// Force convert # to ? BEFORE any router strips it
+if (typeof window !== "undefined" && window.location.hash.startsWith("#access_token")) {
+  const url = window.location.href.replace("#", "?");
+  window.location.replace(url);  // hard reload with query string
+}
+
 export default function Reset() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("Waiting for token…");
