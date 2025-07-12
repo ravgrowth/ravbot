@@ -27,18 +27,16 @@ export default function Login() {
       } else {
         window.location.href = '/dashboard';
       }
-    } else {
-      const { data: existingUser } = await supabase.auth.admin.getUserByEmail(email);
-      if (existingUser?.user) {
-        setMsg("Email already registered. Try logging in.");
-        setMsgColor('red');
-        return;
-      }
-
+    } 
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
-        setMsg(error.message);
-        setMsgColor('red');
+        if (error.message.includes("already registered")) {
+          setMsg("Email already registered. Try logging in.");
+          setMsgColor('red');
+        } else {
+          setMsg(error.message);
+          setMsgColor('red');
+        }
       } else {
         setMsg('Signup successful! Check your email to confirm.');
         setMsgColor('cyan');
