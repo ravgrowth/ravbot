@@ -38,7 +38,9 @@ export default function Login() {
           setMsgColor('red');
         }
       } else {
-        setMsg('Signup successful! Check your email to confirm.');
+        const now = new Date();
+        const timestamp = now.toLocaleString();
+        setMsg(`Signup successful! Check your email to confirm. (${timestamp})`);
         setMsgColor('cyan');
       }
     }
@@ -88,6 +90,19 @@ export default function Login() {
           Change Email
         </button>
       </p>
+      <button
+        onClick={async () => {
+          const {
+            data: { user },
+            error
+          } = await supabase.auth.getUser()
+
+          console.log(user)
+          alert(user?.email ?? 'No user logged in')
+        }}
+      >
+        Who am I?
+      </button>
     </div>
   );
 }
