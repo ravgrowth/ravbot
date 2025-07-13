@@ -5,8 +5,6 @@ import Login from "./pages/login.jsx";
 import Reset from "./pages/reset.jsx";
 import Dashboard from "./pages/dashboard.jsx";
 import ChangeEmail from './pages/ChangeEmail.jsx';
-import Signup from './pages/Signup.jsx';
-
 
 function AppWrapper() {
   const [session, setSession] = useState(null);
@@ -47,7 +45,7 @@ function AppWrapper() {
     <Routes>
       <Route path="/" element={session ? <Dashboard /> : <Login />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Signup />} />
+      <Route path="/signup" element={<Navigate to="/login" replace />} />
       <Route path="/dashboard" element={session ? <Dashboard /> : <Login />} />
       <Route path="/reset/*" element={<Reset />} />
       <Route path="/change-email" element={<ChangeEmail />} />
