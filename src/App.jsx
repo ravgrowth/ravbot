@@ -7,6 +7,37 @@ import Reset from "./pages/reset.jsx";
 import Dashboard from "./pages/dashboard.jsx";
 import ChangeEmail from './pages/ChangeEmail.jsx';
 
+function MessageBanner() {
+  const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("message=")) {
+      const params = new URLSearchParams(hash.slice(1)); // remove the '#'
+      const msg = params.get("message");
+      if (msg) {
+        setMessage(decodeURIComponent(msg));
+        // Optionally remove the message from the URL after showing
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
+  }, []);
+
+  if (!message) return null;
+
+  return (
+    <div style={{ 
+      background: "#e0f7ff", 
+      padding: "12px", 
+      textAlign: "center", 
+      fontWeight: "bold",
+      borderBottom: "2px solid #00bcd4"
+    }}>
+      {message}
+    </div>
+  );
+}
+
 function AppWrapper() {
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);
@@ -43,14 +74,17 @@ function AppWrapper() {
   if (recoveryMode) return <Reset />;
 
   return (
-    <Routes>
-      <Route path="/" element={session ? <Dashboard /> : <Login />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/signup" element={<Navigate to="/login" replace />} />
-      <Route path="/dashboard" element={session ? <Dashboard /> : <Login />} />
-      <Route path="/reset/*" element={<Reset />} />
-      <Route path="/change-email" element={<ChangeEmail />} />
-    </Routes>
+    <>
+      <MessageBanner />
+      <Routes>
+        <Route path="/" element={session ? <Dashboard /> : <Login />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Navigate to="/login" replace />} />
+        <Route path="/dashboard" element={session ? <Dashboard /> : <Login />} />
+        <Route path="/reset/*" element={<Reset />} />
+        <Route path="/change-email" element={<ChangeEmail />} />
+      </Routes>
+    </>
   );
 }
 

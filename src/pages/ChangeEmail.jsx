@@ -93,7 +93,24 @@ export default function ChangeEmail() {
         />
         <button onClick={handleChangeEmail}>Submit</button>
         <p style={{ color }}>{msg}</p>
+        <div style={{ marginTop: 30 }}>
+          <button
+            onClick={() => window.location.href = "/login"}
+            style={{
+              backgroundColor: "#007aff",
+              color: "white",
+              padding: "10px 20px",
+              borderRadius: "6px",
+              fontWeight: "bold",
+              fontSize: "1rem",
+              cursor: "pointer"
+            }}
+          >
+            Go back to Login
+          </button>
+        </div>
       </div>
     </div>
   )
 }
+
