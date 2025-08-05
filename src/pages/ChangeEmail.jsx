@@ -11,16 +11,23 @@ export default function ChangeEmail() {
 
   const handleChangeEmail = async () => {
     setMsg('')
+
     if (newEmail !== confirmEmail) {
       setMsg('New email and confirmation do not match.')
       setColor('red')
       return
     }
 
-    // Step 1: Sign in again to reauthenticate
+    if (currentEmail === newEmail) {
+      setMsg('New email must be different from current email.')
+      setColor('red')
+      return
+    }
+
+    // Step 1: Re-authenticate
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: currentEmail,
-      password: currentPassword
+      password: currentPassword,
     })
 
     if (signInError) {
@@ -29,7 +36,7 @@ export default function ChangeEmail() {
       return
     }
 
-    // Step 2: Check session
+    // Step 2: Get session
     const {
       data: { session },
       error: sessionError
@@ -41,25 +48,36 @@ export default function ChangeEmail() {
       return
     }
 
-    if (currentEmail === newEmail) {
-      setMsg('New email must be different from current email.')
-      setColor('red')
-      return
+    // Step 3: Update email
+    const getTimestamp = () => {
+      const now = new Date();
+      return `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
     }
 
-    // Step 3: Update email
-    const { error: updateError } = await supabase.auth.updateUser({ email: newEmail })
+    const { error: updateError } = await supabase.auth.updateUser({ email: newEmail });
 
     if (updateError) {
-      setMsg(`Email change failed: ${updateError.message}`)
+      setMsg(`Email change failed at ${getTimestamp()}: ${updateError.message}`)
       setColor('red')
     } else {
-      setMsg(`Check your new email (${newEmail}) to confirm the change.`)
+      setMsg(`Check your new email (${newEmail}) to confirm the change. (${getTimestamp()})`)
       setColor('cyan')
+
+      // ✅ OPTIONAL: Trigger webhook or log to Supabase to notify old email
+      // You'd set this up separately (Zapier webhook, Edge Function, etc)
+      fetch("https://your-webhook-or-api.com/warn-old-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          oldEmail: currentEmail,
+          newEmail,
+          timestamp: getTimestamp()
+        })
+      }).catch(err => console.error("Warning email webhook failed", err))
     }
   }
 
-    return (
+  return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
       <div style={{ textAlign: 'center' }}>
         <h2>Change Email</h2>
@@ -113,4 +131,3 @@ export default function ChangeEmail() {
     </div>
   )
 }
-
