@@ -57,9 +57,10 @@ export default function ChangeEmail() {
     const { error: updateError } = await supabase.auth.updateUser({ email: newEmail });
 
     if (updateError) {
-      setMsg(`Email change failed at ${getTimestamp()}: ${updateError.message}`)
+      setMsg(`If allowed, you'll get an email confirmation. (${getTimestamp()})`)
       setColor('red')
-    } else {
+    }
+    else {
       setMsg(`Check your new email (${newEmail}) to confirm the change. (${getTimestamp()})`)
       setColor('cyan')
 
