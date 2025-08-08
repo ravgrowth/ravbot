@@ -93,8 +93,7 @@ export default function Login() {
       <button
         onClick={async () => {
           const {
-            data: { user },
-            error
+            data: { user }
           } = await supabase.auth.getUser()
 
           console.log(user)
