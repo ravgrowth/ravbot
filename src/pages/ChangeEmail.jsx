@@ -50,31 +50,31 @@ export default function ChangeEmail() {
 
     // Step 3: Update email
     const getTimestamp = () => {
-      const now = new Date();
-      return `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`;
+      const now = new Date()
+      return `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()} ${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}`
     }
 
-    const { error: updateError } = await supabase.auth.updateUser({ email: newEmail });
+    const redirectUrl = `${window.location.origin}/email-change-confirmed`
+    const { error: updateError } = await supabase.auth.updateUser(
+      { email: newEmail },
+      { emailRedirectTo: redirectUrl }
+    )
 
     if (updateError) {
       setMsg(`If allowed, you'll get an email confirmation. (${getTimestamp()})`)
       setColor('red')
-    }
-    else {
-      setMsg(`Check your new email (${newEmail}) to confirm the change. (${getTimestamp()})`)
+    } else {
+      setMsg(`Check your new email (${newEmail}) to confirm the change. You'll be signed out everywhere after confirming. (${getTimestamp()})`)
       setColor('cyan')
 
-      // ✅ OPTIONAL: Trigger webhook or log to Supabase to notify old email
-      // You'd set this up separately (Zapier webhook, Edge Function, etc)
-      fetch("https://your-webhook-or-api.com/warn-old-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      // Notify old email about the change using a Supabase Edge Function
+      supabase.functions.invoke('warn-old-email', {
+        body: {
           oldEmail: currentEmail,
           newEmail,
           timestamp: getTimestamp()
-        })
-      }).catch(err => console.error("Warning email webhook failed", err))
+        }
+      }).catch(err => console.error('Warning email function failed', err))
     }
   }
 
