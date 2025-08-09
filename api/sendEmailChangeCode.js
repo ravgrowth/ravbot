@@ -1,7 +1,7 @@
 // /api/sendEmailChangeCode.js
 const { createClient } = require('@supabase/supabase-js');
 const { sendEmail } = require('../lib/ses.cjs');
-const { codeEmailHTML, codeEmailText } = require('../lib/templates.cjs');
+const { niceEmail } = require('../lib/templates.cjs'); // use the same pretty template
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -26,9 +26,18 @@ module.exports = async (req, res) => {
 
     if (error) throw error;
 
-    const subject = 'Your RavGrowth email change code';
-    const html = codeEmailHTML({ code, mins: 10 });
-    const text = codeEmailText({ code, mins: 10 });
+    const subject = 'Confirm your new RavGrowth email';
+    const html = niceEmail({
+      title: 'Confirm your new email',
+      bodyHTML: `<p>We got a request to change your RavGrowth account email to <b>${new_email}</b>.</p>
+                 <p>Enter this code within the next <b>10 minutes</b> to confirm the change:</p>
+                 <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">${code}</p>`,
+      buttonText: 'Confirm Email Change',
+      buttonLink: `${process.env.APP_ORIGIN || 'https://app.ravgrowth.com'}/confirm-email-change?code=${code}&uid=${user_id}`
+    });
+    const text = `We got a request to change your RavGrowth email to ${new_email}.
+Your confirmation code is: ${code} (valid for 10 minutes).
+Confirm here: ${process.env.APP_ORIGIN || 'https://app.ravgrowth.com'}/confirm-email-change?code=${code}&uid=${user_id}`;
 
     try {
       await sendEmail({
