@@ -10,18 +10,15 @@ export default function Reset() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("Waiting for token…");
   const [newPw, setNewPw] = useState("");
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
-    console.log("RAW:", window.location.href);
-
     const hash  = new URLSearchParams(window.location.hash.slice(1));
     const query = new URLSearchParams(window.location.search);
 
-    const access  = query.get("access_token")   || hash.get("access_token");
-    const refresh = query.get("refresh_token")  || hash.get("refresh_token");
-    const type    = query.get("type")           || hash.get("type");
-
-    console.log("Parsed:", { access, refresh, type });
+    const access  = query.get("access_token")  || hash.get("access_token");
+    const refresh = query.get("refresh_token") || hash.get("refresh_token");
+    const type    = query.get("type")          || hash.get("type");
 
     if (!access) {
       setMsg("Invalid or expired link. Ask for a new one.");
@@ -31,17 +28,31 @@ export default function Reset() {
 
     supabase.auth
       .setSession({ access_token: access, refresh_token: refresh ?? "" })
-      .then(({ error }) => {
+      .then(async ({ error }) => {
         setLoading(false);
-        if (error) setMsg(error.message);
-        else       setMsg("Token handled, set your new password 👇");
+        if (error) {
+          setMsg(error.message);
+        } else {
+          setMsg("Token handled, set your new password 👇");
+          const { data: { user } } = await supabase.auth.getUser();
+          setUserEmail(user?.email || "");
+        }
       });
   }, []);
 
   async function handleSave() {
     const { error } = await supabase.auth.updateUser({ password: newPw });
-    if (error) setMsg(error.message);
-    else       setMsg("🎉 Password reset! You can log in now.");
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
+    setMsg("🎉 Password reset! You can log in now.");
+
+    // Sign out locally and send them to Login, prefilling email
+    await supabase.auth.signOut();
+    const next = "/login#message=" + encodeURIComponent("Password reset! Please log in.") +
+                 (userEmail ? "&email=" + encodeURIComponent(userEmail) : "");
+    setTimeout(() => (window.location.href = next), 600);
   }
 
   return (
@@ -53,6 +64,11 @@ export default function Reset() {
       ) : (
         <>
           <p>{msg}</p>
+          {userEmail && (
+            <p style={{ marginTop: 0 }}>
+              Resetting password for <b>{userEmail}</b>
+            </p>
+          )}
           <input
             type="password"
             placeholder="New password"
@@ -63,10 +79,9 @@ export default function Reset() {
         </>
       )}
 
-      {/* Always-visible login button */}
       <div style={{ marginTop: 30 }}>
         <button
-          onClick={() => window.location.href = "/login"}
+          onClick={() => (window.location.href = "/login")}
           style={{
             backgroundColor: "#007aff",
             color: "white",
