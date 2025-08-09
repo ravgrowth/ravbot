@@ -26,7 +26,7 @@ app.post('/api/confirmEmailChange', async (req, res) => {
 
     const { old_email, new_email } = row;
 
-    // Change email in Supabase Auth
+    // Change email in Supabase Auth plz plz zpl zpl zplzplzplzplpl  
     const upd = await supabase.auth.admin.updateUserById(user_id, { email: new_email });
     if (upd.error) throw upd.error;
 
