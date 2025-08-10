@@ -78,7 +78,8 @@ export default function ChangeEmail() {
           user_id: session.user.id,
           current_email: currentEmail,
           new_email: newEmail,
-          debug: true // <— forces debug mode so you see HTML/code in response
+          debug: false 
+          // debug: true // <— forces debug mode so you see HTML/code in response
         })
       });
 
@@ -129,8 +130,8 @@ export default function ChangeEmail() {
       const data = await r.json().catch(() => ({}));
 
       // more debug things probably dont have in production
-      console.log('[ChangeEmail] confirmEmailChange status:', r.status);
-      console.log('[ChangeEmail] confirmEmailChange body:', data);
+      // console.log('[ChangeEmail] confirmEmailChange status:', r.status);
+      // console.log('[ChangeEmail] confirmEmailChange body:', data);
 
       if (!r.ok) {
         return banner(data?.error || "Invalid or expired code.", "red");

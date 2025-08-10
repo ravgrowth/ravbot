@@ -56,10 +56,11 @@ Confirm here: ${confirmUrl}`;
       console.log('[sendEmailChangeCode] PREVIEW SUBJECT:', subject);
       console.log('[sendEmailChangeCode] PREVIEW TEXT:', text);
       console.log('[sendEmailChangeCode] HTML length:', html?.length);
-      console.log('[sendEmailChangeCode] SKIPPING actual send in DEBUG mode.');
+      // console.log('[sendEmailChangeCode] SKIPPING actual send in DEBUG mode.');
       return res.json({
         success: true,
-        debug: true,
+        debug: false, 
+        // debug: true, // dont do bc in production
         code,
         preview: { subject, text, html, confirmUrl },
         tookMs: Date.now() - t0
