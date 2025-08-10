@@ -73,17 +73,6 @@ export default function Login() {
   const [mode, setMode] = useState('login'); // 'login' or 'signup'
 
   useEffect(() => {
-    // If already logged in - bounce to dashboard
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setTimeout(() => {
-        if (session && window.location.pathname === '/login') {
-          window.location.href = '/dashboard';
-        }
-      }, 300);
-    });
-  }, []);
-
-  useEffect(() => {
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
     const queryParams = new URLSearchParams(window.location.search);
     const prefill = hashParams.get('prefill') || queryParams.get('prefill');
