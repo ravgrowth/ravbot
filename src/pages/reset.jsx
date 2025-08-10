@@ -18,7 +18,7 @@ export default function Reset() {
 
     const access  = query.get("access_token")  || hash.get("access_token");
     const refresh = query.get("refresh_token") || hash.get("refresh_token");
-    const type    = query.get("type")          || hash.get("type");
+    const _type   = query.get("type")          || hash.get("type");
 
     if (!access) {
       setMsg("Invalid or expired link. Ask for a new one.");

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../supabaseClient";
 
+const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || "";
+
 export default function ChangeEmail() {
   // Steps: auth -> code -> success
   const [step, setStep] = useState("auth");
@@ -71,33 +73,21 @@ export default function ChangeEmail() {
       }
 
       // 2) Send code
-      const r = await fetch("/api/sendEmailChangeCode", {
+      const r = await fetch(`${API_ORIGIN}/api/sendEmailChangeCode`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user_id: session.user.id,
           current_email: currentEmail,
-          new_email: newEmail,
-          debug: false 
-          // debug: true // <— forces debug mode so you see HTML/code in response
+          new_email: newEmail
         })
       });
 
       const resp = await r.json().catch(() => ({}));
-      
-      // these are debug things
-      console.log('[ChangeEmail] sendEmailChangeCode status:', r.status);
-      console.log('[ChangeEmail] sendEmailChangeCode body:', resp);
 
       if (!r.ok) return banner(`Could not send code: ${resp?.error || "Unknown error"}`, "red");
 
-      // If debug mode returns the code, show/prefill
-      if (resp.code) {
-        setCode(resp.code);
-        banner(`(DEV) Code: ${resp.code}. It expires in 10 minutes.`, "cyan");
-      } else {
-        banner(`Verification code sent to ${newEmail}. It expires in 10 minutes.`, "cyan");
-      }
+      banner(`Verification code sent to ${newEmail}. It expires in 10 minutes.`, "cyan");
 
       setVerifiedNewEmail(newEmail);
       setOldEmail(currentEmail);
@@ -121,7 +111,7 @@ export default function ChangeEmail() {
     setLoading(true);
     try {
       // Step 3 - confirm code, update email via admin, warn old email, send recovery link
-      const r = await fetch("/api/confirmEmailChange", {
+      const r = await fetch(`${API_ORIGIN}/api/confirmEmailChange`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: uid, code })
@@ -129,24 +119,17 @@ export default function ChangeEmail() {
 
       const data = await r.json().catch(() => ({}));
 
-      // more debug things probably dont have in production
-      // console.log('[ChangeEmail] confirmEmailChange status:', r.status);
-      // console.log('[ChangeEmail] confirmEmailChange body:', data);
-
       if (!r.ok) {
         return banner(data?.error || "Invalid or expired code.", "red");
       }
 
       if (data?.forceLogout) {
-        console.log('[ChangeEmail] forceLogout received - signing out');
         try {
           await supabase.auth.signOut();
-        } catch (e) {
-          console.log('[ChangeEmail] signOut error', e);
-        }
+        // eslint-disable-next-line no-empty
+        } catch {}
       }
 
-      // Store reset link if provided by backend
       const actionLink =
         data?.resetLink?.properties?.action_link ||
         data?.resetLink?.action_link ||
@@ -176,7 +159,7 @@ export default function ChangeEmail() {
     }
     setLoading(true);
     try {
-      const r = await fetch("/api/sendEmailChangeCode", {
+      const r = await fetch(`${API_ORIGIN}/api/sendEmailChangeCode`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
