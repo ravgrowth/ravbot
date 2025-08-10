@@ -85,7 +85,7 @@ function six() {
 
 async function sendCodeEmail(to, code) {
   const html = niceEmail({
-    title: 'Your verify code',
+    title: 'Your veriifcation code',
     prehead: 'Use this code in 10 minutes',
     bodyHtml: `<p>Your code is <b style="font-size:16px">${code}</b>. It ends in 10 minutes.</p>`,
     ctaText: 'Enter code',
@@ -96,7 +96,7 @@ async function sendCodeEmail(to, code) {
   await ses.send(new SendEmailCommand({
     Destination: { ToAddresses: [to] },
     Message: {
-      Subject: { Data: 'Your verify code' },
+      Subject: { Data: 'Your verification code' },
       Body: { Html: { Data: html }, Text: { Data: text } }
     },
     Source: process.env.FROM_EMAIL,
