@@ -23,6 +23,7 @@ export default function Dashboard() {
     <div style={{ padding: 40 }}>
       <h1>🔥 Welcome to RavBot Dashboard 🔥</h1>
       <p>Logged in as: {session.user.email}</p>
+      <button onClick={() => (window.location.href = "/settings")}>Settings</button>
       <button onClick={async () => {
         await supabase.auth.signOut();
         window.location.href = "/login";
