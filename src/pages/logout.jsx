@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 export async function hardLogout() {
   try {
     await supabase.auth.signOut(); // clears local storage + stops refresh
+  // eslint-disable-next-line no-empty
   } catch {}
 
   // nuke any left auth keys
@@ -11,6 +12,7 @@ export async function hardLogout() {
       if (k.startsWith('sb-')) localStorage.removeItem(k);
     });
     sessionStorage.clear();
+  // eslint-disable-next-line no-empty
   } catch {}
 
   // clear cookies if you used cookie auth

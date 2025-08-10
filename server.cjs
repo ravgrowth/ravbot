@@ -2,9 +2,16 @@
 
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env.server') });
-['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY'].forEach(k=>{
-  if (!process.env[k]) console.error('MISSING ENV', k);
-});
+const { assertEnv } = require('./lib/env.cjs');
+const logger = require('./lib/logger.cjs');
+assertEnv([
+  'SUPABASE_URL',
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'AWS_REGION',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'FROM_EMAIL'
+]);
 
 const express = require('express');
 const app = express();
@@ -17,7 +24,13 @@ const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SER
 
 // optional - use AWS SES v3
 const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
-const ses = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+const ses = new SESClient({
+  region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
 
 function niceEmail({ title, prehead, bodyHtml, ctaText, ctaHref, footerNote }) {
   const pre = prehead || '';
@@ -108,10 +121,12 @@ async function sendInfoEmail(to, subject, htmlBody, textBody) {
   }));
 }
 
+const DEBUG_EMAILS = process.env.NODE_ENV !== 'production' && !!(process.env.RAV_DEBUG_EMAIL || process.env.DEBUG_EMAILS);
+
 // POST /api/sendEmailChangeCode
 app.post('/api/sendEmailChangeCode', async (req, res) => {
   try {
-    const { user_id, current_email, new_email, debug } = req.body || {};
+    const { user_id, current_email, new_email } = req.body || {};
     if (!user_id || !current_email || !new_email) {
       return res.status(400).json({ error: 'Missing fields' });
     }
@@ -135,15 +150,13 @@ app.post('/api/sendEmailChangeCode', async (req, res) => {
       });
     if (insErr) throw insErr;
 
-    // send email unless in debug
-    if (!debug) {
-      await sendCodeEmail(new_email, code);
-      return res.json({ ok: true, sent: true, expires_at: exp });
+    if (DEBUG_EMAILS) {
+      return res.json({ ok: true, code, expires_at: exp });
     }
-    // dev path - show code so UI can move on
-    return res.json({ ok: true, code, expires_at: exp });
+    await sendCodeEmail(new_email, code);
+    return res.json({ ok: true, sent: true, expires_at: exp });
   } catch (err) {
-    console.error('[sendEmailChangeCode]', err);
+    logger.error('[sendEmailChangeCode]', err);
     return res.status(500).json({ error: String(err.message || err) });
   }
 });
@@ -180,9 +193,9 @@ app.post('/api/confirmEmailChange', async (req, res) => {
     // revoke all sessions
     try {
       await supabase.auth.admin.signOut({ user_id });
-      console.log('[confirmEmailChange] all sessions revoked');
+      logger.info('[confirmEmailChange] all sessions revoked');
     } catch (e) {
-      console.warn('signOut failed', e?.message);
+      logger.warn('signOut failed', e?.message);
     }
 
     // make reset link for new email
@@ -216,7 +229,7 @@ app.post('/api/confirmEmailChange', async (req, res) => {
 
     return res.json({ ok: true, resetLink: linkData });
   } catch (err) {
-    console.error('[confirmEmailChange]', err);
+    logger.error('[confirmEmailChange]', err);
     return res.status(500).json({ error: String(err.message || err) });
   }
 });
@@ -224,5 +237,5 @@ app.post('/api/confirmEmailChange', async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log('server up on http://localhost:' + PORT);
+  logger.info('server up on http://localhost:' + PORT);
 });

@@ -1,29 +1,33 @@
-// /api/sendEmailChangeCode.js - DEBUG READY
+/* eslint-env node */
 const { createClient } = require('@supabase/supabase-js');
 const { sendEmail } = require('../lib/ses.cjs');
 const { niceEmail } = require('../lib/templates.cjs');
+const { assertEnv } = require('../lib/env.cjs');
+const logger = require('../lib/logger.cjs');
+
+assertEnv(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-const DEBUG = !!(process.env.RAV_DEBUG_EMAIL || process.env.DEBUG_EMAILS);
+const DEBUG = process.env.NODE_ENV !== 'production' && !!(process.env.RAV_DEBUG_EMAIL || process.env.DEBUG_EMAILS);
 
 module.exports = async (req, res) => {
   const t0 = Date.now();
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { user_id, current_email, new_email, debug } = req.body || {};
-    const dbg = DEBUG || !!debug;
+    const { user_id, current_email, new_email } = req.body || {};
+    const dbg = DEBUG;
 
     if (dbg) {
-      console.log('[sendEmailChangeCode] BODY:', { user_id, current_email, new_email, debug });
+      logger.debug('[sendEmailChangeCode] BODY', { user_id, current_email, new_email });
     }
 
     if (!user_id || !current_email || !new_email) {
-      if (dbg) console.log('[sendEmailChangeCode] Missing fields');
+      if (dbg) logger.debug('[sendEmailChangeCode] Missing fields');
       return res.status(400).json({ error: 'Missing fields' });
     }
 
@@ -53,14 +57,11 @@ Your confirmation code is: ${code} (valid for 10 minutes).
 Confirm here: ${confirmUrl}`;
 
     if (dbg) {
-      console.log('[sendEmailChangeCode] PREVIEW SUBJECT:', subject);
-      console.log('[sendEmailChangeCode] PREVIEW TEXT:', text);
-      console.log('[sendEmailChangeCode] HTML length:', html?.length);
-      // console.log('[sendEmailChangeCode] SKIPPING actual send in DEBUG mode.');
+      logger.debug('[sendEmailChangeCode] PREVIEW SUBJECT', subject);
+      logger.debug('[sendEmailChangeCode] PREVIEW TEXT', text);
+      logger.debug('[sendEmailChangeCode] HTML length', html?.length);
       return res.json({
         success: true,
-        debug: false, 
-        // debug: true, // dont do bc in production
         code,
         preview: { subject, text, html, confirmUrl },
         tookMs: Date.now() - t0
@@ -68,16 +69,16 @@ Confirm here: ${confirmUrl}`;
     }
 
     try {
-      await sendEmail({ to: new_email, fromName: 'Rav Growth', subject, html, text });
-      console.log('[sendEmailChangeCode] Sent to', new_email);
+      await sendEmail({ to: new_email, subject, html, text });
+      logger.info('[sendEmailChangeCode] Sent to', new_email);
     } catch (err) {
-      console.error('[sendEmailChangeCode] Send fail', err);
+      logger.error('[sendEmailChangeCode] Send fail', err);
       return res.status(500).json({ error: 'Email send fail' });
     }
 
     return res.json({ success: true, tookMs: Date.now() - t0 });
   } catch (e) {
-    console.error('sendEmailChangeCode:', e);
+    logger.error('sendEmailChangeCode', e);
     return res.status(500).json({ error: e.name + ': ' + e.message });
   }
 };

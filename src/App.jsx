@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabaseClient";
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Navigate } from "react-router-dom";
 import Login from "./pages/login.jsx";
 import Reset from "./pages/reset.jsx";
@@ -42,7 +42,6 @@ function AppWrapper() {
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);
   const [recoveryMode, setRecoveryMode] = useState(false);
-  const location = useLocation();
 
   useEffect(() => {
     const checkSession = async () => {
