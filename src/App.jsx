@@ -6,6 +6,7 @@ import Login from "./pages/login.jsx";
 import Reset from "./pages/reset.jsx";
 import Dashboard from "./pages/dashboard.jsx";
 import ChangeEmail from './pages/ChangeEmail.jsx';
+import Settings from './pages/settings.jsx';
 
 function MessageBanner() {
   const [message, setMessage] = useState(null);
@@ -82,6 +83,7 @@ function AppWrapper() {
         <Route path="/dashboard" element={session ? <Dashboard /> : <Login />} />
         <Route path="/reset/*" element={<Reset />} />
         <Route path="/change-email" element={<ChangeEmail />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </>
   );
