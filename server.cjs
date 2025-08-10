@@ -1,16 +1,161 @@
-// At top of server.cjs
-const { niceEmail } = require('./lib/templates.cjs');
+// server.cjs
 
-// Confirm code → update email
-app.post('/api/confirmEmailChange', async (req, res) => {
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env.server') });
+['SUPABASE_URL','SUPABASE_SERVICE_ROLE_KEY'].forEach(k=>{
+  if (!process.env[k]) console.error('MISSING ENV', k);
+});
+
+const express = require('express');
+const app = express();
+app.use(express.json());
+
+const { createClient } = require('@supabase/supabase-js');
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+  auth: { persistSession: false }
+});
+
+// optional - use AWS SES v3
+const { SESClient, SendEmailCommand } = require('@aws-sdk/client-ses');
+const ses = new SESClient({ region: process.env.AWS_REGION || 'us-east-1' });
+
+function niceEmail({ title, prehead, bodyHtml, ctaText, ctaHref, footerNote }) {
+  const pre = prehead || '';
+  return `
+<!doctype html>
+<html>
+  <head>
+    <meta charSet="utf-8"/>
+    <meta name="viewport" content="width=device-width"/>
+    <title>${title}</title>
+    <style>
+      @media (max-width:600px){ .box{padding:16px !important} .h1{font-size:20px !important} }
+    </style>
+  </head>
+  <body style="margin:0;background:#0b0f17;color:#e6eefc;font-family:Inter,Segoe UI,Arial">
+    <div style="display:none;opacity:0;max-height:0;overflow:hidden">${pre}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0f17">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:24px">
+            <tr>
+              <td class="box" style="background:#111828;border:1px solid #1f2937;border-radius:16px;padding:24px">
+                <h1 class="h1" style="margin:0 0 12px;font-size:22px;line-height:1.3;color:#f8fafc">${title}</h1>
+                <div style="font-size:14px;line-height:1.6;color:#cbd5e1">${bodyHtml}</div>
+                ${ctaHref ? `
+                <div style="margin-top:16px">
+                  <a href="${ctaHref}"
+                     style="display:inline-block;padding:10px 16px;border-radius:999px;background:#2563eb;color:#fff;text-decoration:none;font-weight:600">
+                     ${ctaText || 'Open'}
+                  </a>
+                </div>` : ``}
+                ${footerNote ? `
+                <div style="margin-top:16px;font-size:12px;color:#94a3b8">${footerNote}</div>` : ``}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 24px 24px;text-align:center;color:#64748b;font-size:12px">
+                Sent by Rav Growth • This is a one time security email.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function six() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+async function sendCodeEmail(to, code) {
+  const html = niceEmail({
+    title: 'Your verify code',
+    prehead: 'Use this code in 10 minutes',
+    bodyHtml: `<p>Your code is <b style="font-size:16px">${code}</b>. It ends in 10 minutes.</p>`,
+    ctaText: 'Enter code',
+    ctaHref: `${process.env.APP_ORIGIN || 'http://localhost:5173'}/change-email`,
+    footerNote: 'If you did not ask for this, you can ignore this email.'
+  });
+  const text = `Your code is ${code}. It ends in 10 minutes.`;
+  await ses.send(new SendEmailCommand({
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: 'Your verify code' },
+      Body: { Html: { Data: html }, Text: { Data: text } }
+    },
+    Source: process.env.FROM_EMAIL,
+    ReplyToAddresses: [process.env.REPLY_TO_EMAIL || process.env.FROM_EMAIL]
+  }));
+}
+
+async function sendInfoEmail(to, subject, htmlBody, textBody) {
+  const html = niceEmail({
+    title: subject,
+    prehead: 'Account security notice',
+    bodyHtml: htmlBody
+  });
+  await ses.send(new SendEmailCommand({
+    Destination: { ToAddresses: [to] },
+    Message: {
+      Subject: { Data: subject },
+      Body: { Html: { Data: html }, Text: { Data: textBody } }
+    },
+    Source: process.env.FROM_EMAIL,
+    ReplyToAddresses: [process.env.REPLY_TO_EMAIL || process.env.FROM_EMAIL]
+  }));
+}
+
+// POST /api/sendEmailChangeCode
+app.post('/api/sendEmailChangeCode', async (req, res) => {
   try {
-    const { user_id, code } = req.body;
-    if (!user_id || !code) {
+    const { user_id, current_email, new_email, debug } = req.body || {};
+    if (!user_id || !current_email || !new_email) {
       return res.status(400).json({ error: 'Missing fields' });
     }
+    if (current_email.toLowerCase() === new_email.toLowerCase()) {
+      return res.status(400).json({ error: 'New email must be different' });
+    }
 
-    // Get code record
-    const { data: row, error } = await supabase
+    // make code
+    const code = six();
+    const exp = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    // save code row
+    const { error: insErr } = await supabase
+      .from('email_change_codes')
+      .insert({
+        user_id,
+        old_email: current_email,
+        new_email,
+        code,
+        expires_at: exp
+      });
+    if (insErr) throw insErr;
+
+    // send email unless in debug
+    if (!debug) {
+      await sendCodeEmail(new_email, code);
+      return res.json({ ok: true, sent: true, expires_at: exp });
+    }
+    // dev path - show code so UI can move on
+    return res.json({ ok: true, code, expires_at: exp });
+  } catch (err) {
+    console.error('[sendEmailChangeCode]', err);
+    return res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// POST /api/confirmEmailChange
+app.post('/api/confirmEmailChange', async (req, res) => {
+  try {
+    const { user_id, code } = req.body || {};
+    if (!user_id || !code) return res.status(400).json({ error: 'Missing fields' });
+
+    // get row
+    const { data: row, error: selErr } = await supabase
       .from('email_change_codes')
       .select('*')
       .eq('user_id', user_id)
@@ -18,7 +163,7 @@ app.post('/api/confirmEmailChange', async (req, res) => {
       .order('expires_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) throw error;
+    if (selErr) throw selErr;
     if (!row) return res.status(400).json({ error: 'Invalid code' });
     if (new Date(row.expires_at) < new Date()) {
       return res.status(400).json({ error: 'Expired code' });
@@ -26,52 +171,58 @@ app.post('/api/confirmEmailChange', async (req, res) => {
 
     const { old_email, new_email } = row;
 
-    // Change email in Supabase Auth plz plz zpl zpl zplzplzplzplpl  
-    const upd = await supabase.auth.admin.updateUserById(user_id, { email: new_email });
-    if (upd.error) throw upd.error;
-
-    // Create password reset link
-    const { data: link, error: linkErr } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: new_email,
-      options: { redirectTo: `${process.env.APP_ORIGIN || 'https://app.ravgrowth.com'}/reset` }
+    // update auth email using admin
+    const { error: updErr } = await supabase.auth.admin.updateUserById(user_id, {
+      email: new_email
     });
+    if (updErr) throw updErr;
+
+    // revoke all sessions
+    try {
+      await supabase.auth.admin.signOut({ user_id });
+      console.log('[confirmEmailChange] all sessions revoked');
+    } catch (e) {
+      console.warn('signOut failed', e?.message);
+    }
+
+    // make reset link for new email
+    const { data: linkData, error: linkErr } = await supabase.auth.admin
+      .generateLink({ type: 'recovery', email: new_email });
     if (linkErr) throw linkErr;
-    const actionLink = link?.properties?.action_link || link?.action_link;
-    if (!actionLink) throw new Error('No action link generated');
 
-    // Warn old email (pretty)
-    await sendEmail({
-      to: old_email,
-      fromName: 'Rav Growth',
-      subject: 'Your RavGrowth account email changed',
-      html: niceEmail({
-        title: 'Your RavGrowth account email changed',
-        bodyHTML: `<p>Your account email was changed to <b>${new_email}</b>.</p>
-                   <p>If this wasn’t you, reset your password immediately.</p>`,
-        buttonText: 'Reset Password',
-        buttonLink: actionLink
-      }),
-      text: `Your email changed to ${new_email}. Reset: ${actionLink}`
-    });
+    // warn old email A
+    try {
+      await sendInfoEmail(
+        old_email,
+        'Your email was changed',
+        `<p>Your account email is now <b>${new_email}</b>.</p>
+        <p>If this was not you, click to secure your account:</p>
+        <p><a href="${linkData.properties.action_link}">Reset password</a></p>`,
+        `Your account email is now ${new_email}. If not you, reset: ${linkData.properties.action_link}`
+      );
+    } catch {}
 
-    // Confirm to new email (pretty)
-    await sendEmail({
-      to: new_email,
-      fromName: 'Rav Growth',
-      subject: 'Email updated - set your new password',
-      html: niceEmail({
-        title: 'Email updated - set your new password',
-        bodyHTML: `<p>We updated your email to <b>${new_email}</b>.</p>`,
-        buttonText: 'Set New Password',
-        buttonLink: actionLink
-      }),
-      text: `We updated your email to ${new_email}. Set a new password: ${actionLink}`
-    });
+    // tell new email B + give reset link
+    try {
+      await sendInfoEmail(
+        new_email,
+        'Email updated - set a new password',
+        `<p>Your account email is now <b>${new_email}</b>.</p>
+        <p>For safety, set a new password now:</p>
+        <p><a href="${linkData.properties.action_link}">Set new password</a></p>`,
+        `Email updated to ${new_email}. Set new password: ${linkData.properties.action_link}`
+      );
+    } catch {}
 
-    res.json({ success: true });
-  } catch (e) {
-    console.error('confirmEmailChange:', e);
-    res.status(500).json({ error: e.message || 'Server error' });
+    return res.json({ ok: true, resetLink: linkData });
+  } catch (err) {
+    console.error('[confirmEmailChange]', err);
+    return res.status(500).json({ error: String(err.message || err) });
   }
+});
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log('server up on http://localhost:' + PORT);
 });

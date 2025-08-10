@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { hardLogout } from "./logout";
+// "C:\Users\guita\ravbot-dashboard\src\pages\logout.jsx"
 import { supabase } from "../supabaseClient";
 
 export default function ChangeEmail() {
@@ -77,11 +79,17 @@ export default function ChangeEmail() {
         body: JSON.stringify({
           user_id: session.user.id,
           current_email: currentEmail,
-          new_email: newEmail
+          new_email: newEmail,
+          debug: true // <— forces debug mode so you see HTML/code in response
         })
       });
 
       const resp = await r.json().catch(() => ({}));
+      
+      // these are debug things
+      console.log('[ChangeEmail] sendEmailChangeCode status:', r.status);
+      console.log('[ChangeEmail] sendEmailChangeCode body:', resp);
+
       if (!r.ok) return banner(`Could not send code: ${resp?.error || "Unknown error"}`, "red");
 
       // If debug mode returns the code, show/prefill
@@ -121,6 +129,11 @@ export default function ChangeEmail() {
       });
 
       const data = await r.json().catch(() => ({}));
+
+      // more debug things probably dont have in production
+      console.log('[ChangeEmail] confirmEmailChange status:', r.status);
+      console.log('[ChangeEmail] confirmEmailChange body:', data);
+
       if (!r.ok) {
         return banner(data?.error || "Invalid or expired code.", "red");
       }
