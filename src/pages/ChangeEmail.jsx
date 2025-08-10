@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import { hardLogout } from "./logout";
-// "C:\Users\guita\ravbot-dashboard\src\pages\logout.jsx"
 import { supabase } from "../supabaseClient";
 
 export default function ChangeEmail() {
@@ -136,6 +134,15 @@ export default function ChangeEmail() {
 
       if (!r.ok) {
         return banner(data?.error || "Invalid or expired code.", "red");
+      }
+
+      if (data?.forceLogout) {
+        console.log('[ChangeEmail] forceLogout received - signing out');
+        try {
+          await supabase.auth.signOut();
+        } catch (e) {
+          console.log('[ChangeEmail] signOut error', e);
+        }
       }
 
       // Store reset link if provided by backend
@@ -345,12 +352,12 @@ export default function ChangeEmail() {
             <button onClick={() => (window.location.href = "/dashboard")} style={btnGhost}>
               Return to Dashboard
             </button>
-              <button
+            <button
               onClick={() => {
                 window.location.href =
                   `/login#message=${encodeURIComponent(
                     'Email updated - check your inbox to reset your password.'
-                  )}&emailChange=success`;
+                  )}&emailChange=success&prefill=${encodeURIComponent(verifiedNewEmail)}`;
               }}
               style={btnGhost}
             >
@@ -359,7 +366,10 @@ export default function ChangeEmail() {
             <button
               onClick={async () => {
                 await supabase.auth.signOut();
-                window.location.href = "/login#message=" + encodeURIComponent("Sign in with your NEW email to continue.");
+                window.location.href =
+                  "/login#message=" +
+                  encodeURIComponent("Sign in with your NEW email to continue.") +
+                  `&prefill=${encodeURIComponent(verifiedNewEmail)}`;
               }}
               style={btnGhost}
             >
