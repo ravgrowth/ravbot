@@ -3,20 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RavBot – Dashboard</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
-    <title>RavBot – Dashboard</title>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+
+    <!-- Google Analytics (GA4) tag: tracks traffic for app.ravgrowth.com under same property -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-PLBP6P27Z5"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-
-      gtag('config', 'G-XXXXXXXXXX');
+      gtag('config', 'G-PLBP6P27Z5', {
+        cookie_flags: 'SameSite=None;Secure'
+      });
     </script>
   </head>
   <body>
