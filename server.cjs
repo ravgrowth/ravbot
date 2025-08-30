@@ -4,6 +4,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env.server') });
 const { assertEnv } = require('./lib/env.cjs');
 const logger = require('./lib/logger.cjs');
+const { cancelSubscription } = require('./lib/subscriptions.cjs');
 assertEnv([
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
@@ -230,6 +231,21 @@ app.post('/api/confirmEmailChange', async (req, res) => {
     return res.json({ ok: true, resetLink: linkData });
   } catch (err) {
     logger.error('[confirmEmailChange]', err);
+    return res.status(500).json({ error: String(err.message || err) });
+  }
+});
+
+// POST /api/subscriptions/cancel
+app.post('/api/subscriptions/cancel', async (req, res) => {
+  try {
+    const { subscriptionId } = req.body || {};
+    if (!subscriptionId) {
+      return res.status(400).json({ error: 'Missing subscriptionId' });
+    }
+    await cancelSubscription(supabase, subscriptionId);
+    return res.json({ ok: true });
+  } catch (err) {
+    logger.error('[subscriptions/cancel]', err);
     return res.status(500).json({ error: String(err.message || err) });
   }
 });
