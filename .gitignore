@@ -41,3 +41,19 @@ public/log
 .secrettxt
 .secrettxt*
 .secret*
+
+# Secrets & env
+.env
+.env.*
+*.secrettxt
+*.secret
+*.key
+*.pem
+*.p12
+*.cert
+*.crt
+*.creds
+*.config.local
+
+*.secrettxt
+*.secret*
