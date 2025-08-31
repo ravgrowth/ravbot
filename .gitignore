@@ -37,3 +37,5 @@ public/log
 .env.*
 
 .vercel
+
+.secrettxt
