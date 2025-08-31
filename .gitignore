@@ -39,3 +39,5 @@ public/log
 .vercel
 
 .secrettxt
+.secrettxt*
+.secret*
