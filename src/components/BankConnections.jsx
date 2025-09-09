@@ -3,9 +3,10 @@ import { supabase } from '../supabaseClient.js';
 import { usePlaidLink } from 'react-plaid-link';
 import Card from './Card.jsx';
 
-export default function BankConnections({ userId }) {
+export default function BankConnections({ userId, loadSubs }) {
   const [linkToken, setLinkToken] = useState(null);
   const [banks, setBanks] = useState([]);
+  const [bankConnectionId, setBankConnectionId] = useState(null);
 
   useEffect(() => {
     const fetchBanks = async () => {
@@ -39,11 +40,36 @@ export default function BankConnections({ userId }) {
         body: JSON.stringify({ public_token, bankName, bankId, userId }),
       });
       const data = await res.json();
-      if (res.ok) {
-        setBanks((prev) => [...prev, data.bank]);
-      } else {
+      if (!res.ok) {
         console.error(data.error);
         alert('Failed to link bank');
+        return;
+      }
+
+      // 1) Save bank connection and update UI list
+      setBanks((prev) => [...prev, data.bank]);
+
+      // 2) Save bank id into state as bankConnectionId
+      const newBankConnectionId = data.bank?.id;
+      setBankConnectionId(newBankConnectionId);
+
+      // 3) Immediately sync subscriptions
+      try {
+        const syncRes = await fetch('/api/syncSubscriptions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, bankConnectionId: newBankConnectionId }),
+        });
+        const syncJson = await syncRes.json();
+        if (!syncRes.ok) throw new Error(syncJson.error || 'Sync failed');
+
+        // 4) Trigger Dashboard's loadSubs() so subscriptions refresh
+        if (typeof loadSubs === 'function') {
+          await loadSubs();
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to sync subscriptions');
       }
     },
   });

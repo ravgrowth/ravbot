@@ -158,4 +158,65 @@ app.post("/api/getTransactions", async (req, res) => {
   }
 });
 
+// ---------------------------
+// Detect & Save Subscriptions
+// ---------------------------
+app.post("/api/syncSubscriptions", async (req, res) => {
+  const { userId, bankConnectionId } = req.body;
+
+  try {
+    // Lookup access_token
+    const { data: conn, error: connErr } = await supabase
+      .from("bank_connections")
+      .select("access_token")
+      .eq("id", bankConnectionId)
+      .eq("user_id", userId)
+      .single();
+
+    if (connErr || !conn) return res.status(404).json({ error: "Bank connection not found" });
+    const access_token = conn.access_token;
+
+    // Fetch last 90 days of transactions
+    const now = new Date();
+    const ninety = new Date();
+    ninety.setDate(now.getDate() - 90);
+
+    const plaidRes = await client.transactionsGet({
+      access_token,
+      start_date: ninety.toISOString().split("T")[0],
+      end_date: now.toISOString().split("T")[0],
+    });
+
+    const txns = plaidRes.data.transactions;
+
+    // Naive recurring detection: group by merchant_name
+    const merchants = {};
+    txns.forEach((t) => {
+      if (!t.merchant_name) return;
+      merchants[t.merchant_name] = merchants[t.merchant_name] || [];
+      merchants[t.merchant_name].push(t);
+    });
+
+    const recurring = Object.entries(merchants).filter(([_, list]) => list.length >= 3);
+
+    // Save into subscriptions table
+    for (const [merchant, list] of recurring) {
+      const avgAmount = list.reduce((s, x) => s + x.amount, 0) / list.length;
+      await supabase.from("subscriptions").upsert({
+        user_id: userId,
+        bank_connection_id: bankConnectionId,
+        merchant_name: merchant,
+        amount: avgAmount,
+        interval: "monthly",
+        status: "detected",
+      });
+    }
+
+    res.json({ ok: true, found: recurring.map(([m]) => m) });
+  } catch (err) {
+    console.error("syncSubscriptions failed:", err.response?.data || err.message);
+    res.status(500).json({ error: "Subscription sync failed" });
+  }
+});
+
 app.listen(3000, () => console.log("✅ API running on :3000"));
