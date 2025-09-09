@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 export default function Dashboard() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [subs, setSubs] = useState([]);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -16,6 +17,36 @@ export default function Dashboard() {
     };
     checkSession();
   }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from('subscriptions').select('*');
+      setSubs(data || []);
+    };
+    if (session) load();
+  }, [session]);
+
+  const handleCancel = async (id) => {
+    const prev = subs.find((s) => s.id === id)?.status;
+    setSubs((s) => s.map((sub) => sub.id === id ? { ...sub, status: 'cancel_pending' } : sub));
+    try {
+      const res = await fetch('/api/cancelSubscription', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ subscriptionId: id }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Error');
+      setSubs((s) => s.map((sub) => sub.id === id ? { ...sub, status: json.status } : sub));
+    } catch (err) {
+      console.error(err);
+      alert('Cancel failed');
+      setSubs((s) => s.map((sub) => sub.id === id ? { ...sub, status: prev } : sub));
+    }
+  };
 
   if (loading) return <p>Loading...</p>;
 
@@ -30,6 +61,24 @@ export default function Dashboard() {
       }}>
         Log Out
       </button>
+
+      <h2 style={{ marginTop: 30 }}>Subscriptions</h2>
+      <ul>
+        {subs.map((sub) => (
+          <li key={sub.id} style={{ marginBottom: 10 }}>
+            {sub.merchant_name} - {sub.status}
+            {sub.status !== 'cancelled' && (
+              <button
+                onClick={() => handleCancel(sub.id)}
+                disabled={sub.status === 'cancel_pending'}
+                style={{ marginLeft: 10 }}
+              >
+                Cancel
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
