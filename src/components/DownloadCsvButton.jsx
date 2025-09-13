@@ -4,7 +4,7 @@ export default function DownloadCsvButton({ userId }) {
   const handleDownload = async () => {
     const { data: txns } = await supabase
       .from('transactions')
-      .select('transaction_id, date, merchant_name, name, amount')
+      .select('plaid_transaction_id, date, merchant_name, raw_name, amount')
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .limit(200);
@@ -21,11 +21,11 @@ export default function DownloadCsvButton({ userId }) {
 
     const header = ['date', 'merchant', 'raw_name', 'amount', 'category', 'notes'];
     const rows = (txns || []).map((t) => {
-      const o = overrides[t.transaction_id] || {};
+      const o = overrides[t.plaid_transaction_id] || {};
       return {
         date: t.date,
         merchant: t.merchant_name || '',
-        raw_name: t.name || '',
+        raw_name: t.raw_name || '',
         amount: t.amount,
         category: o.category || '',
         notes: o.notes || '',

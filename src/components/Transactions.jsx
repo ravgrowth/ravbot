@@ -13,7 +13,7 @@ export default function Transactions({ userId, limit = 200 }) {
       setLoading(true);
       const { data: txns } = await supabase
         .from('transactions')
-        .select('transaction_id, date, merchant_name, name, amount, user_id')
+        .select('plaid_transaction_id, date, merchant_name, name, amount, user_id')
         .eq('user_id', userId)
         .order('date', { ascending: false })
         .limit(limit);
@@ -67,11 +67,11 @@ export default function Transactions({ userId, limit = 200 }) {
           <h4 style={{ margin: '0.5rem 0' }}>{date}</h4>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {grouped[date].map((t) => {
-              const override = overrides[t.transaction_id] || {};
+              const override = overrides[t.plaid_transaction_id] || {};
               const amount = typeof t.amount === 'number' ? t.amount.toFixed(2) : t.amount;
               return (
                 <li
-                  key={t.transaction_id}
+                  key={t.plaid_transaction_id}
                   style={{
                     display: 'flex',
                     justifyContent: 'space-between',
@@ -106,7 +106,7 @@ export default function Transactions({ userId, limit = 200 }) {
       {editing && (
         <EditTransactionModal
           transaction={editing}
-          override={overrides[editing.transaction_id]}
+          override={overrides[editing.plaid_transaction_id]}
           onClose={() => setEditing(null)}
           onSave={handleSave}
         />

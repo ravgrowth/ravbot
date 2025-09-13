@@ -11,16 +11,26 @@ const labels = {
 export default function Subscriptions({ userId }) {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [debug, setDebug] = useState({ data: null, error: null });
 
   useEffect(() => {
     const fetchSubs = async () => {
+      console.log('[Subscriptions] fetchSubs start', { userId });
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('subscriptions')
-        .select('id, name, status')
+        .select('id, merchant_name, status')
         .eq('user_id', userId);
+      if (error) {
+        console.error('[Subscriptions] fetchSubs supabase error', error);
+      }
+      if (!data || data.length === 0) {
+        console.error('[Subscriptions] fetchSubs empty result');
+      }
       setSubs(data || []);
+      setDebug({ data: data || null, error: error || null });
       setLoading(false);
+      console.log('[Subscriptions] fetchSubs done', { count: (data || []).length });
     };
     fetchSubs();
   }, [userId]);
@@ -43,7 +53,9 @@ export default function Subscriptions({ userId }) {
                 borderBottom: '1px solid #eee',
               }}
             >
-              <span>{s.name}</span>
+              <span>
+                {s.merchant_name}
+              </span>
               <span
                 style={{
                   fontSize: '0.8rem',
@@ -58,6 +70,12 @@ export default function Subscriptions({ userId }) {
           ))}
         </ul>
       )}
+      <div style={{ marginTop: '0.75rem', padding: '0.5rem', background: '#fafafa', border: '1px dashed #ddd', borderRadius: 6 }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Debug</div>
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: '0.85rem' }}>
+          {JSON.stringify(debug, null, 2)}
+        </pre>
+      </div>
     </Card>
   );
 }

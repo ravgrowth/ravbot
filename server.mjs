@@ -1,6 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import linkTokenHandler from "./api/linkToken.js";
+import cancelSubscriptionHandler from "./api/cancelSubscription.js";
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 import { createClient } from "@supabase/supabase-js";
 
@@ -29,6 +30,8 @@ const supabase = createClient(
 
 // linkToken endpoint
 app.post("/api/linkToken", linkTokenHandler);
+// cancel subscription endpoint (MVP)
+app.post("/api/cancelSubscription", cancelSubscriptionHandler);
 
 // ---------------------------
 // Exchange Public Token
@@ -36,7 +39,7 @@ app.post("/api/linkToken", linkTokenHandler);
 app.post("/api/exchangePublicToken", async (req, res) => {
   try {
     const { public_token, bankName, bankId, userId } = req.body;
-
+    console.log('[exchangePublicToken] start', { userId, bankName, bankId });
     const exchange = await client.itemPublicTokenExchange({ public_token });
     const access_token = exchange.data.access_token;
 
@@ -55,9 +58,10 @@ app.post("/api/exchangePublicToken", async (req, res) => {
 
     if (error) throw error;
 
+    console.log('[exchangePublicToken] success, saved bank_connection', { userId, bankId: data?.id });
     res.json({ success: true, bank: data });
   } catch (e) {
-    console.error("Plaid exchange failed:", e.response?.data || e.message);
+    console.error('[exchangePublicToken] failed', e?.response?.data || e?.stack || e);
     res.status(500).json({ error: "Exchange failed" });
   }
 });
@@ -69,6 +73,7 @@ app.post("/api/getAccounts", async (req, res) => {
   const { userId, bankConnectionId } = req.body;
 
   try {
+    console.log('[getAccounts] start', { userId, bank_connection_id: bankConnectionId });
     // Lookup access_token securely
     const { data, error } = await supabase
       .from("bank_connections")
@@ -90,8 +95,10 @@ app.post("/api/getAccounts", async (req, res) => {
       status: "pending",
     });
 
+    console.log('[getAccounts] calling Plaid accountsGet');
     const response = await client.accountsGet({ access_token });
     const accounts = response.data.accounts;
+    console.log('[getAccounts] success', { count: accounts.length });
 
     // Mark log complete
     await supabase.from("money_actions")
@@ -101,7 +108,7 @@ app.post("/api/getAccounts", async (req, res) => {
 
     res.json({ accounts });
   } catch (err) {
-    console.error("accountsGet failed:", err.response?.data || err.message);
+    console.error('[getAccounts] failed', err?.response?.data || err?.stack || err);
     res.status(500).json({ error: "Failed to fetch accounts" });
   }
 });
@@ -113,6 +120,7 @@ app.post("/api/getTransactions", async (req, res) => {
   const { userId, bankConnectionId } = req.body;
 
   try {
+    console.log('[getTransactions] start', { userId, bank_connection_id: bankConnectionId });
     // Lookup access_token securely
     const { data, error } = await supabase
       .from("bank_connections")
@@ -138,12 +146,14 @@ app.post("/api/getTransactions", async (req, res) => {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(now.getDate() - 30);
 
+    console.log('[getTransactions] calling Plaid transactionsGet');
     const response = await client.transactionsGet({
       access_token,
       start_date: thirtyDaysAgo.toISOString().split("T")[0],
       end_date: now.toISOString().split("T")[0],
     });
     const txns = response.data.transactions;
+    console.log('[getTransactions] success', { transactions: txns.length });
 
     // Mark log complete
     await supabase.from("money_actions")
@@ -153,7 +163,7 @@ app.post("/api/getTransactions", async (req, res) => {
 
     res.json({ transactions: txns });
   } catch (err) {
-    console.error("transactionsGet failed:", err.response?.data || err.message);
+    console.error('[getTransactions] failed', err?.response?.data || err?.stack || err);
     res.status(500).json({ error: "Failed to fetch transactions" });
   }
 });
@@ -165,6 +175,7 @@ app.post("/api/syncSubscriptions", async (req, res) => {
   const { userId, bankConnectionId } = req.body;
 
   try {
+    console.log('[syncSubscriptions] start', { userId, bank_connection_id: bankConnectionId });
     // Lookup access_token
     const { data: conn, error: connErr } = await supabase
       .from("bank_connections")
@@ -181,13 +192,14 @@ app.post("/api/syncSubscriptions", async (req, res) => {
     const ninety = new Date();
     ninety.setDate(now.getDate() - 90);
 
+    console.log('[syncSubscriptions] calling Plaid transactionsGet');
     const plaidRes = await client.transactionsGet({
       access_token,
       start_date: ninety.toISOString().split("T")[0],
       end_date: now.toISOString().split("T")[0],
     });
-
     const txns = plaidRes.data.transactions;
+    console.log('[syncSubscriptions] transactions fetched', { count: txns.length });
 
     // Naive recurring detection: group by merchant_name
     const merchants = {};
@@ -198,24 +210,90 @@ app.post("/api/syncSubscriptions", async (req, res) => {
     });
 
     const recurring = Object.entries(merchants).filter(([_, list]) => list.length >= 3);
+    console.log('[syncSubscriptions] recurring detected', { merchants: recurring.map(([m]) => m) });
 
-    // Save into subscriptions table
-    for (const [merchant, list] of recurring) {
-      const avgAmount = list.reduce((s, x) => s + x.amount, 0) / list.length;
-      await supabase.from("subscriptions").upsert({
-        user_id: userId,
-        bank_connection_id: bankConnectionId,
-        merchant_name: merchant,
-        amount: avgAmount,
-        interval: "monthly",
-        status: "detected",
-      });
+    // Save into subscriptions table (columns that exist)
+    let inserted = 0;
+    if (recurring.length === 0) {
+      console.log('[syncSubscriptions] NO SUBSCRIPTIONS DETECTED', { reason: 'No recurring merchants found' });
+    } else {
+      const rows = recurring.map(([merchant]) => ({ user_id: userId, merchant_name: merchant, status: 'detected' }));
+      const { data: upData, error: upErr } = await supabase
+        .from('subscriptions')
+        .upsert(rows)
+        .select();
+      if (upErr) {
+        console.error('[syncSubscriptions] upsert error', upErr);
+      } else {
+        inserted = (upData || []).length;
+        console.log('[syncSubscriptions] INSERTED', { count: inserted, userId });
+      }
     }
 
-    res.json({ ok: true, found: recurring.map(([m]) => m) });
+    res.json({ ok: true, found: recurring.map(([m]) => m), inserted });
   } catch (err) {
-    console.error("syncSubscriptions failed:", err.response?.data || err.message);
+    console.error('[syncSubscriptions] failed', err?.response?.data || err?.stack || err);
     res.status(500).json({ error: "Subscription sync failed" });
+  }
+});
+
+// Additional scan route for debugging with explicit logs
+app.post('/api/subscriptions/scan', async (req, res) => {
+  const { userId, bankConnectionId } = req.body || {};
+  try {
+    console.log('[subscriptions/scan] start', { userId, bank_connection_id: bankConnectionId });
+    const { data: conn, error: connErr } = await supabase
+      .from('bank_connections')
+      .select('access_token')
+      .eq('id', bankConnectionId)
+      .eq('user_id', userId)
+      .single();
+    if (connErr || !conn) {
+      console.error('[subscriptions/scan] bank connection lookup failed', connErr || 'not found');
+      return res.status(404).json({ error: 'Bank connection not found' });
+    }
+    const access_token = conn.access_token;
+
+    const now = new Date();
+    const ninety = new Date();
+    ninety.setDate(now.getDate() - 90);
+    console.log('[subscriptions/scan] calling Plaid transactionsGet');
+    const plaidRes = await client.transactionsGet({
+      access_token,
+      start_date: ninety.toISOString().split('T')[0],
+      end_date: now.toISOString().split('T')[0],
+    });
+    const txns = plaidRes.data.transactions || [];
+    console.log('[subscriptions/scan] transactions fetched', { count: txns.length });
+
+    const merchants = {};
+    txns.forEach((t) => {
+      const name = t.merchant_name || t.name || null;
+      if (!name) return;
+      merchants[name] = merchants[name] || [];
+      merchants[name].push(t);
+    });
+    const recurring = Object.entries(merchants).filter(([_, list]) => list.length >= 3);
+    if (recurring.length === 0) {
+      console.log('NO SUBSCRIPTIONS DETECTED', { reason: 'No recurring merchants found' });
+      return res.json({ ok: true, found: [], inserted: 0 });
+    }
+
+    const rows = recurring.map(([merchant]) => ({ user_id: userId, merchant_name: merchant, status: 'detected' }));
+    const { data: upData, error: upErr } = await supabase
+      .from('subscriptions')
+      .upsert(rows)
+      .select();
+    if (upErr) {
+      console.error('[subscriptions/scan] upsert error', upErr);
+      return res.status(500).json({ error: 'Upsert failed' });
+    }
+    const inserted = (upData || []).length;
+    console.log(`INSERTED ${inserted} subscriptions for user ${userId}`);
+    return res.json({ ok: true, found: recurring.map(([m]) => m), inserted });
+  } catch (err) {
+    console.error('[subscriptions/scan] failed', err?.response?.data || err?.stack || err);
+    return res.status(500).json({ error: 'Scan failed' });
   }
 });
 

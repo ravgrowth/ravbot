@@ -29,7 +29,10 @@ export default function Dashboard() {
   }, []);
 
   const loadSubs = async () => {
-    const { data } = await supabase.from('subscriptions').select('*');
+    const { data } = await supabase
+      .from('subscriptions')
+      .select('id, merchant_name, status')
+      .eq('user_id', session.user.id);
     setSubs(data || []);
   };
 

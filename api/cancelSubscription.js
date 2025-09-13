@@ -19,16 +19,21 @@ module.exports = async (req, res) => {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
     if (!token) return res.status(401).json({ error: 'No token provided' });
 
+    console.log('[api/cancelSubscription] auth.getUser start');
     const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
+    console.log('[api/cancelSubscription] auth.getUser result', { userId: user?.id, error: userErr });
     if (userErr || !user) return res.status(401).json({ error: 'Invalid token' });
 
     const { subscriptionId } = req.body || {};
     if (!subscriptionId) return res.status(400).json({ error: 'Missing subscriptionId' });
 
+    console.log('[api/cancelSubscription] calling cancelSubscription', { user_id: user.id, subscription_id: subscriptionId });
     const result = await cancelSubscription(supabase, user.id, subscriptionId);
+    console.log('[api/cancelSubscription] cancelSubscription result', result);
     return res.json({ ok: true, status: result.status });
   } catch (e) {
     logger.error('cancelSubscription', e);
+    console.error('[api/cancelSubscription] error', e?.stack || e);
     const status = e.status && Number.isInteger(e.status) ? e.status : 500;
     return res.status(status).json({ error: e.message });
   }

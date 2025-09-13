@@ -42,7 +42,7 @@ export default function EditTransactionModal({ transaction, override = {}, onClo
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
           <button onClick={onClose}>Cancel</button>
-          <button onClick={() => onSave(transaction.transaction_id, category, notes)}>Save</button>
+          <button onClick={() => onSave(transaction.plaid_transaction_id, category, notes)}>Save</button>
         </div>
       </div>
     </div>
