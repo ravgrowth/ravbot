@@ -39,6 +39,13 @@ function userClientFromRequest(req) {
   return { supabase, token };
 }
 
+// Service-role Supabase client (bypasses RLS) for backend mutations
+const serviceSupabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
+);
+
 // linkToken endpoint (no auth required)
 app.post("/api/linkToken", linkTokenHandler);
 
@@ -58,7 +65,8 @@ app.post("/api/exchangePublicToken", async (req, res) => {
     const exchange = await client.itemPublicTokenExchange({ public_token });
     const access_token = exchange.data.access_token;
 
-    const { data, error } = await supabase
+    // Use service-role client for inserting bank connection to bypass RLS
+    const { data, error } = await serviceSupabase
       .from("bank_connections")
       .insert({
         user_id: userId,
@@ -99,7 +107,7 @@ app.post("/api/getAccounts", async (req, res) => {
     if (error || !data) return res.status(404).json({ error: "Bank connection not found" });
     const access_token = data.access_token;
 
-    await supabase.from("money_actions").insert({
+    await serviceSupabase.from("money_actions").insert({
       user_id: userId,
       action: "check_balance",
       details: { bankConnectionId },
@@ -109,7 +117,7 @@ app.post("/api/getAccounts", async (req, res) => {
     const response = await client.accountsGet({ access_token });
     const accounts = response.data.accounts;
 
-    await supabase
+    await serviceSupabase
       .from("money_actions")
       .update({ status: "completed", details: { count: accounts.length } })
       .eq("action", "check_balance")
@@ -142,7 +150,7 @@ app.post("/api/getTransactions", async (req, res) => {
     if (error || !data) return res.status(404).json({ error: "Bank connection not found" });
     const access_token = data.access_token;
 
-    await supabase.from("money_actions").insert({
+    await serviceSupabase.from("money_actions").insert({
       user_id: userId,
       action: "fetch_transactions",
       details: { bankConnectionId },
@@ -160,7 +168,7 @@ app.post("/api/getTransactions", async (req, res) => {
     });
     const txns = response.data.transactions;
 
-    await supabase
+    await serviceSupabase
       .from("money_actions")
       .update({ status: "completed", details: { count: txns.length } })
       .eq("action", "fetch_transactions")
@@ -217,7 +225,7 @@ app.post("/api/syncSubscriptions", async (req, res) => {
     let inserted = 0;
     if (recurring.length > 0) {
       const rows = recurring.map(([merchant]) => ({ user_id: userId, merchant_name: merchant, status: "detected" }));
-      const { data: upData, error: upErr } = await supabase.from("subscriptions").upsert(rows).select();
+      const { data: upData, error: upErr } = await serviceSupabase.from("subscriptions").upsert(rows).select();
       if (upErr) console.error("[syncSubscriptions] upsert error", upErr);
       else inserted = (upData || []).length;
     }
@@ -281,7 +289,7 @@ app.post("/api/subscriptions/scan", async (req, res) => {
     if (recurring.length === 0) return res.json({ ok: true, found: [], inserted: 0 });
 
     const rows = recurring.map(([merchant]) => ({ user_id: userId, merchant_name: merchant, status: "detected" }));
-    const { data: upData, error: upErr } = await supabase.from("subscriptions").upsert(rows).select();
+    const { data: upData, error: upErr } = await serviceSupabase.from("subscriptions").upsert(rows).select();
     if (upErr) return res.status(500).json({ error: "Upsert failed" });
     const inserted = (upData || []).length;
     return res.json({ ok: true, found: recurring.map(([m]) => m), inserted });
@@ -292,4 +300,3 @@ app.post("/api/subscriptions/scan", async (req, res) => {
 });
 
 app.listen(3000, () => console.log("API running on :3000"));
-

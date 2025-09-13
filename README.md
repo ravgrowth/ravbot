@@ -42,3 +42,7 @@ Run locally:
 Notes:
 - Subscription cancel route is a no-op in UI; it opens merchant links for safety/legal compliance.
 - RLS: server endpoints that mutate user data require a valid Supabase user access token.
+ - Supabase keys usage:
+   - Backend must use the service role key (`SUPABASE_SERVICE_ROLE_KEY`) for inserts/privileged writes (e.g., creating `bank_connections`) so RLS does not block them.
+   - Frontend must use the anon key and will only be able to read/write rows that match RLS policies. See `sql/rls_policies.sql` for policies that allow users to `insert/select/update` where `auth.uid() = user_id` on `bank_connections`, `subscriptions`, and `money_actions`.
+   - If you do not create any RLS policies, only the backend (service key) can write; frontend will be restricted by RLS.
