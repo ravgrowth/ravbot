@@ -1,20 +1,24 @@
 /* eslint-env node */
-const { createClient } = require('@supabase/supabase-js');
-const { sendEmail } = require('../lib/ses.cjs');
-const { niceEmail } = require('../lib/templates.cjs');
-const { assertEnv } = require('../lib/env.cjs');
-const logger = require('../lib/logger.cjs');
+import { createClient } from '@supabase/supabase-js';
+import * as sesMod from '../lib/ses.js';
+import * as templates from '../lib/templates.js';
+import { assertEnv } from '../lib/env.js';
+import logger from '../lib/logger.js';
+
+const { sendEmail } = sesMod;
+const { niceEmail } = templates;
 
 assertEnv(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
 const DEBUG = process.env.NODE_ENV !== 'production' && !!(process.env.RAV_DEBUG_EMAIL || process.env.DEBUG_EMAILS);
 
-module.exports = async (req, res) => {
+export default async function sendEmailChangeCode(req, res) {
   const t0 = Date.now();
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -57,9 +61,9 @@ Your confirmation code is: ${code} (valid for 10 minutes).
 Confirm here: ${confirmUrl}`;
 
     if (dbg) {
-      logger.debug('[sendEmailChangeCode] PREVIEW SUBJECT', subject);
-      logger.debug('[sendEmailChangeCode] PREVIEW TEXT', text);
-      logger.debug('[sendEmailChangeCode] HTML length', html?.length);
+      logger.debug('[api/sendEmailChangeCode] preview subject', subject);
+      logger.debug('[api/sendEmailChangeCode] preview text', text);
+      logger.debug('[api/sendEmailChangeCode] html length', html?.length);
       return res.json({
         success: true,
         code,
@@ -70,15 +74,15 @@ Confirm here: ${confirmUrl}`;
 
     try {
       await sendEmail({ to: new_email, subject, html, text });
-      logger.info('[sendEmailChangeCode] Sent to', new_email);
+      logger.info('[api/sendEmailChangeCode] sent', new_email);
     } catch (err) {
-      logger.error('[sendEmailChangeCode] Send fail', err);
+      logger.error('[api/sendEmailChangeCode] send fail', err);
       return res.status(500).json({ error: 'Email send fail' });
     }
 
     return res.json({ success: true, tookMs: Date.now() - t0 });
   } catch (e) {
-    logger.error('sendEmailChangeCode', e);
+    logger.error('[api/sendEmailChangeCode] error', e);
     return res.status(500).json({ error: e.name + ': ' + e.message });
   }
-};
+}

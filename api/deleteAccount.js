@@ -1,16 +1,17 @@
 /* eslint-env node */
-const { createClient } = require('@supabase/supabase-js');
-const { assertEnv } = require('../lib/env.cjs');
-const logger = require('../lib/logger.cjs');
+import { createClient } from '@supabase/supabase-js';
+import { assertEnv } from '../lib/env.js';
+import logger from '../lib/logger.js';
 
 assertEnv(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
-module.exports = async (req, res) => {
+export default async function deleteAccount(req, res) {
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
@@ -26,8 +27,7 @@ module.exports = async (req, res) => {
 
     return res.json({ success: true });
   } catch (e) {
-    logger.error('deleteAccount', e);
+    logger.error('[api/deleteAccount] error', e);
     return res.status(500).json({ error: e.message });
   }
-};
-
+}

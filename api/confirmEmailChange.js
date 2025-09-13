@@ -1,20 +1,24 @@
 /* eslint-env node */
-const { createClient } = require('@supabase/supabase-js');
-const { sendEmail } = require('../lib/ses.cjs');
-const { niceEmail } = require('../lib/templates.cjs');
-const { assertEnv } = require('../lib/env.cjs');
-const logger = require('../lib/logger.cjs');
+import { createClient } from '@supabase/supabase-js';
+import * as sesMod from '../lib/ses.js';
+import * as templates from '../lib/templates.js';
+import { assertEnv } from '../lib/env.js';
+import logger from '../lib/logger.js';
+
+const { sendEmail } = sesMod;
+const { niceEmail } = templates;
 
 assertEnv(['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY']);
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY,
+  { auth: { persistSession: false } }
 );
 
 const DEBUG = process.env.NODE_ENV !== 'production' && !!(process.env.RAV_DEBUG_EMAIL || process.env.DEBUG_EMAILS);
 
-module.exports = async (req, res) => {
+export default async function confirmEmailChange(req, res) {
   const t0 = Date.now();
   try {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -22,10 +26,10 @@ module.exports = async (req, res) => {
     const { user_id, code } = req.body || {};
     const dbg = DEBUG;
 
-    if (dbg) logger.debug('[confirmEmailChange] BODY', { user_id, code });
+    if (dbg) logger.debug('[api/confirmEmailChange] body', { user_id, code });
 
     if (!user_id || !code) {
-      if (dbg) logger.debug('[confirmEmailChange] Missing fields');
+      if (dbg) logger.debug('[api/confirmEmailChange] missing fields');
       return res.status(400).json({ error: 'Missing fields' });
     }
 
@@ -43,24 +47,24 @@ module.exports = async (req, res) => {
     if (new Date(row.expires_at) < new Date()) return res.status(400).json({ error: 'Expired code' });
 
     const { old_email, new_email } = row;
-    if (dbg) logger.debug('[confirmEmailChange] Found row', row);
+    if (dbg) logger.debug('[api/confirmEmailChange] found row', row);
 
     const { error: updErr } = await supabase.auth.admin.updateUserById(user_id, { email: new_email });
     if (updErr) throw updErr;
-    logger.info('[confirmEmailChange] Updated user email', old_email, '→', new_email);
+    logger.info('[api/confirmEmailChange] updated user email', old_email, '->', new_email);
 
     try {
       if (supabase.auth.admin.invalidateAllRefreshTokens) {
         await supabase.auth.admin.invalidateAllRefreshTokens(user_id);
-        logger.info('[confirmEmailChange] refresh tokens invalidated for', user_id);
+        logger.info('[api/confirmEmailChange] refresh tokens invalidated for', user_id);
       } else if (supabase.auth.admin.signOut) {
         await supabase.auth.admin.signOut({ user_id });
-        logger.info('[confirmEmailChange] all sessions revoked for', user_id);
+        logger.info('[api/confirmEmailChange] all sessions revoked for', user_id);
       } else {
-        logger.warn('[confirmEmailChange] No admin token revoke method found');
+        logger.warn('[api/confirmEmailChange] no admin token revoke method');
       }
     } catch (e) {
-      logger.warn('[confirmEmailChange] session revoke failed', e?.message);
+      logger.warn('[api/confirmEmailChange] session revoke failed', e?.message);
     }
 
     const { data: linkData, error: linkErr } = await supabase.auth.admin.generateLink({
@@ -76,14 +80,14 @@ module.exports = async (req, res) => {
     const warnHtml = niceEmail({
       title: 'Your RavGrowth account email changed',
       bodyHTML: `<p>Your account email was changed to <b>${new_email}</b>.</p>
-                 <p>If this wasn’t you, please secure your account now.</p>`,
+                 <p>If this wasn't you, please secure your account now.</p>`,
       buttonText: 'Reset password',
       buttonLink: actionLink
     });
     const warnText = `Your email changed to ${new_email}. If this was not you, reset here: ${actionLink}`;
 
     if (dbg) {
-      logger.debug('[confirmEmailChange] WARN OLD EMAIL PREVIEW', { to: old_email, subject: warnSubject });
+      logger.debug('[api/confirmEmailChange] warn old email preview', { to: old_email, subject: warnSubject });
     } else {
       await sendEmail({
         to: old_email,
@@ -104,7 +108,7 @@ module.exports = async (req, res) => {
     const okText = `Email updated to ${new_email}. Set a new password: ${actionLink}`;
 
     if (dbg) {
-      logger.debug('[confirmEmailChange] OK NEW EMAIL PREVIEW', { to: new_email, subject: okSubject });
+      logger.debug('[api/confirmEmailChange] ok new email preview', { to: new_email, subject: okSubject });
     } else {
       await sendEmail({
         to: new_email,
@@ -114,7 +118,7 @@ module.exports = async (req, res) => {
       });
     }
 
-    logger.info('[confirmEmailChange] SUCCESS payload', { user_id, old_email, new_email, actionLink });
+    logger.info('[api/confirmEmailChange] success', { user_id, old_email, new_email, actionLink });
 
     return res.json({
       ok: true,
@@ -124,7 +128,7 @@ module.exports = async (req, res) => {
       tookMs: Date.now() - t0
     });
   } catch (err) {
-    logger.error('[confirmEmailChange]', err);
+    logger.error('[api/confirmEmailChange] error', err);
     return res.status(500).json({ error: String(err.message || err) });
   }
-};
+}

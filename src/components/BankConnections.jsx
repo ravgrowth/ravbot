@@ -48,9 +48,10 @@ export default function BankConnections({ userId, loadSubs }) {
       console.log('[BankConnections] onSuccess start', { institution: metadata.institution });
       const bankName = metadata.institution?.name;
       const bankId = metadata.institution?.institution_id;
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/exchangePublicToken', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
         body: JSON.stringify({ public_token, bankName, bankId, userId }),
       });
       const data = await res.json();
@@ -74,7 +75,7 @@ export default function BankConnections({ userId, loadSubs }) {
         console.log('[BankConnections] syncSubscriptions start', { userId, bankConnectionId: newBankConnectionId });
         const syncRes = await fetch('/api/syncSubscriptions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
           body: JSON.stringify({ userId, bankConnectionId: newBankConnectionId }),
         });
         const syncJson = await syncRes.json();
