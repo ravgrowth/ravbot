@@ -2,6 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { assertEnv } from "../lib/env.js";
 import logger from "../lib/logger.js";
+import { ensureForQuery } from "../lib/schema.js";
 import { cancelSubscription as cancelSubHelper } from "../lib/subscriptions.js";
 
 assertEnv(["SUPABASE_URL", "SUPABASE_ANON_KEY"]);
@@ -66,6 +67,8 @@ export async function cancelSubscription(req, res) {
 
     logger.debug(`${TAG_CANCEL} helper start`, { user_id: user.id, subscription_id: subscriptionId });
     const result = await cancelSubHelper(supabase, user.id, subscriptionId);
+    try { await ensureForQuery('logs'); } catch {}
+    try { await supabase.from('logs').insert({ user_id: user.id, action: 'cancel_subscription', payload: { subscriptionId } }) } catch {}
     logger.debug(`${TAG_CANCEL} helper result`, result);
     return res.json({ ok: true, status: result.status });
   } catch (e) {

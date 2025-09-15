@@ -106,6 +106,68 @@ begin
   end if;
 end $$;
 
+-- Ensure RLS and policies for new tables (idempotent)
+create table if not exists public.user_goals (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  goal_type text not null,
+  carrot text,
+  target numeric,
+  created_at timestamptz default now()
+);
+alter table public.user_goals enable row level security;
+do $$ begin
+  begin execute 'create policy "user_goals_select_own" on public.user_goals for select using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "user_goals_insert_own" on public.user_goals for insert with check (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "user_goals_update_own" on public.user_goals for update using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "user_goals_delete_own" on public.user_goals for delete using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+end $$;
+
+create table if not exists public.lifetime_savings (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  saved_amount numeric not null default 0,
+  updated_at timestamptz default now()
+);
+alter table public.lifetime_savings enable row level security;
+do $$ begin
+  begin execute 'create policy "lifetime_savings_select_own" on public.lifetime_savings for select using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "lifetime_savings_insert_own" on public.lifetime_savings for insert with check (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "lifetime_savings_update_own" on public.lifetime_savings for update using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "lifetime_savings_delete_own" on public.lifetime_savings for delete using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+end $$;
+
+create table if not exists public.user_budgets (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  rent numeric,
+  essentials numeric,
+  lifestyle numeric,
+  created_at timestamptz default now()
+);
+alter table public.user_budgets enable row level security;
+do $$ begin
+  begin execute 'create policy "user_budgets_select_own" on public.user_budgets for select using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "user_budgets_insert_own" on public.user_budgets for insert with check (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "user_budgets_update_own" on public.user_budgets for update using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "user_budgets_delete_own" on public.user_budgets for delete using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+end $$;
+
+create table if not exists public.investment_positions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  asset text not null,
+  balance numeric not null default 0,
+  updated_at timestamptz default now()
+);
+alter table public.investment_positions enable row level security;
+do $$ begin
+  begin execute 'create policy "investment_positions_select_own" on public.investment_positions for select using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "investment_positions_insert_own" on public.investment_positions for insert with check (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "investment_positions_update_own" on public.investment_positions for update using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+  begin execute 'create policy "investment_positions_delete_own" on public.investment_positions for delete using (auth.uid() = user_id)'; exception when duplicate_object then null; end;
+end $$;
+
 do $$
 begin
   if to_regclass('public.transactions') is not null then
