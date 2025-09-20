@@ -9,8 +9,8 @@ import GrowthGap from '../components/GrowthGap.jsx';
 import BudgetSummary from '../components/BudgetSummary.jsx';
 import DownloadCsvButton from '../components/DownloadCsvButton.jsx';
 import Card from '../components/Card.jsx';
-import MoneyScore from '../components/MoneyScore.jsx';
 import RecentLogs from '../components/RecentLogs.jsx';
+import { computeMoneyScore } from '../../lib/moneyScore.js';
 import { log } from '../utils/log.js';
 
 export default function Dashboard() {
@@ -25,9 +25,6 @@ export default function Dashboard() {
   const [goal, setGoal] = useState(null);
   const [lifetimeSavedDb, setLifetimeSavedDb] = useState(null);
   const [showSubs, setShowSubs] = useState(true);
-  const [showIdle, setShowIdle] = useState(true);
-  const [showGrowth, setShowGrowth] = useState(true);
-  const [showBudget, setShowBudget] = useState(true);
 
   const totalNetWorth = useMemo(
     () => accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0),
@@ -38,6 +35,34 @@ export default function Dashboard() {
     () => idleV2.reduce((sum, r) => sum + Number(r.estimated_yearly_gain || 0), 0),
     [idleV2]
   );
+
+  const moneyScoreSummary = useMemo(() => {
+    if (!accounts || accounts.length === 0) {
+      return { grade: 'N/A', score: 0, netWorth: 0, assets: 0, debts: 0 };
+    }
+    let assets = 0;
+    let debts = 0;
+    for (const account of accounts) {
+      const type = String(account.account_type || '').toLowerCase();
+      const subtype = String(account.subtype || '').toLowerCase();
+      const balance = Number(account.balance || 0);
+      const isDebt = type.includes('loan') || type.includes('credit') || subtype.includes('loan') || subtype.includes('debt') || balance < 0;
+      if (isDebt) debts += Math.abs(balance);
+      else assets += Math.max(0, balance);
+    }
+    const { netWorth, score, grade } = computeMoneyScore({ assets, debts });
+    return { assets, debts, netWorth, score, grade };
+  }, [accounts]);
+
+  const idleSummary = useMemo(() => {
+    const list = Array.isArray(idleV2) ? idleV2.slice() : [];
+    const totalBalance = list.reduce((sum, row) => sum + Number(row.balance || 0), 0);
+    const totalGain = list.reduce((sum, row) => sum + Number(row.estimated_yearly_gain || 0), 0);
+    const top = list.sort((a, b) => Number(b.balance || 0) - Number(a.balance || 0)).slice(0, 3);
+    return { totalBalance, totalGain, top };
+  }, [idleV2]);
+
+  const lifetimeSavedDisplay = lifetimeSavedDb ?? lifetimeSaved;
 
   useEffect(() => {
     const checkSession = async () => {
@@ -159,7 +184,7 @@ export default function Dashboard() {
       }}>
         <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0b5fff' }}>
           {(() => {
-            const total = (lifetimeSavedDb ?? lifetimeSaved) || 0;
+            const total = lifetimeSavedDisplay || 0;
             return `RavBot saved you ${total.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} so far.`;
           })()}
         </div>
@@ -209,7 +234,7 @@ export default function Dashboard() {
               }}
               disabled={scanning}
             >
-              {scanning ? 'Scanning…' : 'Scan My Money'}
+              {scanning ? 'Scanning...' : 'Scan My Money'}
             </button>
             <button onClick={() => (window.location.href = '/goals')}>Set a Goal</button>
           </div>
@@ -227,10 +252,10 @@ export default function Dashboard() {
               <div style={{ fontWeight: 600, marginBottom: 6 }}>Scan Summary</div>
               <div style={{ display: 'grid', gap: 4 }}>
                 <div>
-                  {`${(scanResult.leaks || []).length} leaks found 	→ ${Number(scanResult?.totals?.leaks_yearly || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}/year lost.`}
+                  {`${(scanResult.leaks || []).length} leaks found 	-> ${Number(scanResult?.totals?.leaks_yearly || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}/year lost.`}
                 </div>
                 <div>
-                  {`Idle ${Number((scanResult.idle_cash || []).reduce((a, r) => a + Number(r.amount || 0), 0)).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} 	→ missing ${Number(scanResult?.totals?.idle_yearly || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} this year.`}
+                  {`Idle ${Number((scanResult.idle_cash || []).reduce((a, r) => a + Number(r.amount || 0), 0)).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} 	-> missing ${Number(scanResult?.totals?.idle_yearly || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} this year.`}
                 </div>
                 <div>
                   {(() => {
@@ -238,7 +263,7 @@ export default function Dashboard() {
                     const rate = g?.missing_rate != null ? `${Math.round(Number(g.missing_rate) * 100)}%` : null;
                     const label = g?.message || 'Growth gap';
                     return rate
-                      ? `${label} 	→ missing ${rate} growth.`
+                      ? `${label} 	-> missing ${rate} growth.`
                       : `${label}.`;
                   })()}
                 </div>
@@ -261,8 +286,81 @@ export default function Dashboard() {
           )}
         </div>
         <HeaderBar user={session.user} />
-        <div style={{ margin: '8px 0' }}>
-          <MoneyScore userId={session.user.id} />
+        <div style={{ margin: '16px auto', maxWidth: 1080, display: 'grid', gap: '16px' }}>
+          <Card>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+              <div>
+                <div style={{ textTransform: 'uppercase', fontSize: '0.85rem', letterSpacing: '0.05em', color: '#555', marginBottom: 4 }}>Money Score</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+                  <div style={{ fontSize: '3.5rem', fontWeight: 800, lineHeight: 1 }}>
+                    {moneyScoreSummary.grade}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 600 }}>
+                      {moneyScoreSummary.grade === 'N/A' ? '--' : `${moneyScoreSummary.score} / 100`}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                      Scale: X / SS / S / A / B / C / D / F
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', minWidth: 200 }}>
+                <div style={{ fontSize: '0.85rem', color: '#666' }}>Net worth</div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 700 }}>
+                  {Number(moneyScoreSummary.netWorth || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#444', marginTop: 4 }}>
+                  Assets: {Number(moneyScoreSummary.assets || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+                </div>
+                <div style={{ fontSize: '0.85rem', color: '#444' }}>
+                  Debts: {Number(moneyScoreSummary.debts || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+                </div>
+              </div>
+            </div>
+          </Card>
+          <div id="idle-cash-card">
+            <IdleCash userId={session.user.id} />
+          </div>
+          <Card title="Improve your score">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+              <button
+                onClick={() => {
+                  const el = document.querySelector('#idle-cash-card');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                {idleSummary.totalBalance > 0
+                  ? `Move ${Number(idleSummary.totalBalance || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} idle cash`
+                  : 'Move idle cash'}
+              </button>
+              <button
+                onClick={() => window.open('https://www.ally.com/bank/online-savings-account/', '_blank', 'noopener,noreferrer')}
+              >
+                Open HYSA
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.querySelector('#subscriptions-card');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Review subscriptions
+              </button>
+            </div>
+            {idleSummary.top.length > 0 && (
+              <ul style={{ marginTop: 12, paddingLeft: 16, fontSize: '0.9rem', color: '#444' }}>
+                {idleSummary.top.map((row) => (
+                  <li key={`${row.id || row.account_name || 'idle'}-${row.institution_name || 'bank'}`}>
+                    {(row.account_name || 'Account')}: {Number(row.balance || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })} idle
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p style={{ marginTop: 12, fontSize: '0.85rem', color: '#666' }}>
+              Focus on these quick wins to nudge your grade upward.
+            </p>
+          </Card>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', maxWidth: 1400, margin: '0 auto' }}>
           <div style={{ flex: 1 }}>
@@ -292,7 +390,7 @@ export default function Dashboard() {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                           <div>
                             <div style={{ fontWeight: 600 }}>{a.name}</div>
-                            <div style={{ fontSize: '0.85rem', color: '#555' }}>{a.account_type}{a.subtype ? ` · ${a.subtype}` : ''}</div>
+                            <div style={{ fontSize: '0.85rem', color: '#555' }}>{a.account_type}{a.subtype ? ` - ${a.subtype}` : ''}</div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
                             <div style={{ fontWeight: 700 }}>
@@ -311,21 +409,22 @@ export default function Dashboard() {
               )}
             </Card>
             <BankConnections userId={session.user.id} />
-            <IdleCash userId={session.user.id} />
             <GrowthGap userId={session.user.id} />
             <BudgetSummary userId={session.user.id} />
             <Card title="Dopamine">
               <div style={{ fontSize: '1.1rem' }}>
-                Lifetime Saved: {lifetimeSaved.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
+                Lifetime Saved: {Number(lifetimeSavedDisplay || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}
               </div>
             </Card>
-            {!showSubs ? (
-              <Card title="Subscriptions" actions={<button onClick={() => setShowSubs(true)}>Open</button>}>
-                <p>Hidden until opened to optimize load.</p>
-              </Card>
-            ) : (
-              <Subscriptions userId={session.user.id} />
-            )}
+            <div id="subscriptions-card">
+              {!showSubs ? (
+                <Card title="Subscriptions" actions={<button onClick={() => setShowSubs(true)}>Open</button>}>
+                  <p>Hidden until opened to optimize load.</p>
+                </Card>
+              ) : (
+                <Subscriptions userId={session.user.id} />
+              )}
+            </div>
             <RecentLogs />
             <Card title="Developer / Test">
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

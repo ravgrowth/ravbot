@@ -624,5 +624,21 @@ app.get('/api/logs/recent', async (req, res) => {
   }
 })
 
+// Ensure JSON for unknown API routes
+app.use('/api', (req, res, next) => {
+  if (!res.headersSent) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  return next();
+});
+
+// Final error handler emits JSON
+app.use((err, req, res, next) => {
+  console.error('[api] unhandled', err?.stack || err);
+  if (res.headersSent) return next(err);
+  const status = err?.status && Number.isInteger(err.status) ? err.status : 500;
+  res.status(status).json({ error: err?.message || 'Server error' });
+});
+
 const PORT = Number(process.env.PORT || 8000);
 app.listen(PORT, () => console.log(`API running on :${PORT}`));
