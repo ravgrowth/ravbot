@@ -6,8 +6,10 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
+        // keep path as-is; backend mounts under /api
+        rewrite: (path) => path,
       },
     },
   },

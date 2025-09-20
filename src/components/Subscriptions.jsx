@@ -16,6 +16,7 @@ export default function Subscriptions({ userId }) {
   const [showCanceled, setShowCanceled] = useState(false);
   const [sortBy, setSortBy] = useState('price'); // price | date
   const [expandAll, setExpandAll] = useState(false);
+  const [openInstructionsKey, setOpenInstructionsKey] = useState(null);
 
   const fetchSubs = async () => {
     try {
@@ -48,9 +49,30 @@ export default function Subscriptions({ userId }) {
   }, [userId]);
 
   const filtered = useMemo(() => {
-    let rows = (subs || []).filter(s => s && s.merchant_name)
+    // Deduplicate by normalized merchant name
+    const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const map = new Map();
+    for (const s of subs || []) {
+      if (!s || !s.merchant_name) continue;
+      const key = norm(s.merchant_name);
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, { ...s, _group_count: 1, _group_key: key, _earliest: s.updated_at || null });
+      } else {
+        const earliest = prev._earliest && s.updated_at ? (new Date(prev._earliest) < new Date(s.updated_at) ? prev._earliest : s.updated_at) : (prev._earliest || s.updated_at || null);
+        map.set(key, {
+          ...prev,
+          amount: Math.max(Number(prev.amount || 0), Number(s.amount || 0)),
+          status: prev.status === 'cancelled' ? s.status : prev.status, // keep non-cancelled if present
+          _group_count: prev._group_count + 1,
+          _earliest: earliest,
+        });
+      }
+    }
+    let rows = Array.from(map.values());
     if (!showCanceled) rows = rows.filter(s => String(s.status||'').toLowerCase() !== 'cancelled')
     if (sortBy === 'price') rows = rows.slice().sort((a,b)=>Number(b.amount||0)-Number(a.amount||0))
+    if (sortBy === 'date') rows = rows.slice().sort((a,b)=>new Date(b._earliest||0)-new Date(a._earliest||0))
     return rows
   }, [subs, showCanceled, sortBy])
 
@@ -74,6 +96,41 @@ export default function Subscriptions({ userId }) {
     const q = encodeURIComponent(`${merchant} cancel subscription`);
     return `https://www.google.com/search?q=${q}`;
   };
+
+  const cancelInstructions = (merchant) => {
+    const m = (merchant||'').toLowerCase();
+    if (m.includes('spotify')) return [
+      'Open spotify.com/account.',
+      'Log in and go to Account > Plan.',
+      'Click Change plan > Cancel Premium.',
+    ];
+    if (m.includes('netflix')) return [
+      'Visit netflix.com/cancelplan.',
+      'Confirm cancellation and note end-of-cycle date.',
+    ];
+    if (m.includes('hulu')) return [
+      'Go to help.hulu.com and sign in.',
+      'Select Manage Plan > Cancel.',
+    ];
+    if (m.includes('amazon') || m.includes('prime')) return [
+      'Visit amazon.com/gp/primecentral.',
+      'Manage Membership > End Membership.',
+    ];
+    if (m.includes('apple')) return [
+      'On iPhone: Settings > Apple ID > Subscriptions.',
+      'Select subscription > Cancel.',
+    ];
+    if (m.includes('google')) return [
+      'Go to play.google.com > Payments & subscriptions.',
+      'Select subscription > Cancel.',
+    ];
+    return [
+      'Find your most recent receipt or emails from the merchant.',
+      'Log into your account on the merchant’s website.',
+      'Look for Billing/Subscriptions and choose Cancel.',
+      'If you can’t find a path, contact your bank to block future charges.',
+    ];
+  }
 
   return (
     <Card title="Subscriptions" actions={
@@ -110,6 +167,16 @@ export default function Subscriptions({ userId }) {
                   {s.amount != null ? `$${Number(s.amount).toFixed(2)}` : ''}
                   {s.interval ? ` / ${s.interval}` : ''}
                 </span>
+                {s._group_count > 1 && (
+                  <span style={{ marginLeft: 8, fontSize: '0.8rem', color: '#999' }}>
+                    {`(${s._group_count} duplicates)`}
+                  </span>
+                )}
+                {s._earliest && (
+                  <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                    First seen: {new Date(s._earliest).toLocaleDateString()}
+                  </div>
+                )}
                 {expandAll && (
                   <div style={{ fontSize: '0.8rem', color: '#666' }}>
                     Status: {s.status || 'unknown'}
@@ -119,7 +186,7 @@ export default function Subscriptions({ userId }) {
               <span
                 style={{
                   fontSize: '0.8rem',
-                  background: '#eee',
+                  background: (s.status==='cancel_pending') ? '#fff3cd' : (s.status==='cancelled' ? '#e6f4ea' : '#eee'),
                   borderRadius: '4px',
                   padding: '0 0.5rem',
                 }}
@@ -127,11 +194,8 @@ export default function Subscriptions({ userId }) {
                 {labels[s.status] || s.status}
                 <button
                   style={{ marginLeft: 8 }}
-                  onClick={() => {
-                    const url = cancelLinks(s.merchant_name || '');
-                    window.open(url, '_blank', 'noopener,noreferrer');
-                  }}
-                  title="Open the merchant's cancellation page"
+                  onClick={() => setOpenInstructionsKey(k=>k===s._group_key?null:s._group_key)}
+                  title="Show cancellation steps"
                 >
                   Cancel
                 </button>
@@ -140,6 +204,22 @@ export default function Subscriptions({ userId }) {
          ))}
        </ul>
      )}
+      {filtered.map((s)=> (
+        s && openInstructionsKey===s._group_key ? (
+          <div key={`${s._group_key}-inst`} style={{ margin: '8px 0', padding: '8px 10px', border: '1px solid #eee', borderRadius: 6, background: '#fafafa' }}>
+            <div style={{ fontWeight: 600, marginBottom: 4 }}>How to cancel {s.merchant_name}</div>
+            <ol style={{ margin: 0, paddingLeft: 18 }}>
+              {cancelInstructions(s.merchant_name).map((line, i)=> (
+                <li key={i}>{line}</li>
+              ))}
+            </ol>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <button onClick={() => window.open(cancelLinks(s.merchant_name||''), '_blank', 'noopener,noreferrer')}>Open steps</button>
+              <button onClick={() => setOpenInstructionsKey(null)}>Close</button>
+            </div>
+          </div>
+        ) : null
+      ))}
       <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
         <button onClick={async ()=>{
           try {

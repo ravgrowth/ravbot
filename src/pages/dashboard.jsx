@@ -24,10 +24,10 @@ export default function Dashboard() {
   const [scanError, setScanError] = useState('');
   const [goal, setGoal] = useState(null);
   const [lifetimeSavedDb, setLifetimeSavedDb] = useState(null);
-  const [showSubs, setShowSubs] = useState(false);
-  const [showIdle, setShowIdle] = useState(false);
-  const [showGrowth, setShowGrowth] = useState(false);
-  const [showBudget, setShowBudget] = useState(false);
+  const [showSubs, setShowSubs] = useState(true);
+  const [showIdle, setShowIdle] = useState(true);
+  const [showGrowth, setShowGrowth] = useState(true);
+  const [showBudget, setShowBudget] = useState(true);
 
   const totalNetWorth = useMemo(
     () => accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0),
@@ -59,7 +59,7 @@ export default function Dashboard() {
       // Fetch accounts for the user
       const { data: acctRows, error: acctErr } = await supabase
         .from('accounts')
-        .select('id, name, account_type, subtype, balance, currency, bank_connection_id')
+        .select('user_id, id, name, account_type, subtype, balance, currency, bank_connection_id')
         .eq('user_id', session.user.id);
       if (!acctErr && Array.isArray(acctRows)) {
         setAccounts(acctRows);
@@ -80,14 +80,14 @@ export default function Dashboard() {
       // Fetch idle v2 for Lifetime Saved
       const { data: idleData } = await supabase
         .from('idle_cash_recommendations_v2')
-        .select('balance, estimated_yearly_gain')
+        .select('user_id, balance, estimated_yearly_gain')
         .eq('user_id', session.user.id);
       setIdleV2(Array.isArray(idleData) ? idleData : []);
 
       // Fetch latest user goal
       const { data: goals } = await supabase
         .from('user_goals')
-        .select('goal_type, carrot, target, created_at')
+        .select('user_id, goal_type, carrot, target, created_at')
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
         .limit(1);
@@ -97,7 +97,7 @@ export default function Dashboard() {
       try {
         const { data: lsRow } = await supabase
           .from('lifetime_savings')
-          .select('saved_amount')
+          .select('user_id, saved_amount')
           .eq('user_id', session.user.id)
           .limit(1)
           .single();
@@ -311,27 +311,9 @@ export default function Dashboard() {
               )}
             </Card>
             <BankConnections userId={session.user.id} />
-            {!showIdle ? (
-              <Card title="Idle Cash" actions={<button onClick={() => setShowIdle(true)}>Load</button>}>
-                <p>Lazy-loaded for speed.</p>
-              </Card>
-            ) : (
-              <IdleCash userId={session.user.id} />
-            )}
-            {!showGrowth ? (
-              <Card title="Growth Gap" actions={<button onClick={() => setShowGrowth(true)}>Load</button>}>
-                <p>Lazy-loaded for speed.</p>
-              </Card>
-            ) : (
-              <GrowthGap userId={session.user.id} />
-            )}
-            {!showBudget ? (
-              <Card title="Budget" actions={<button onClick={() => setShowBudget(true)}>Load</button>}>
-                <p>Lazy-loaded for speed.</p>
-              </Card>
-            ) : (
-              <BudgetSummary userId={session.user.id} />
-            )}
+            <IdleCash userId={session.user.id} />
+            <GrowthGap userId={session.user.id} />
+            <BudgetSummary userId={session.user.id} />
             <Card title="Dopamine">
               <div style={{ fontSize: '1.1rem' }}>
                 Lifetime Saved: {lifetimeSaved.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })}

@@ -30,7 +30,7 @@ export async function listSubscriptions(req, res) {
 
     const { data, error } = await supabase
       .from("subscriptions")
-      .select("id, merchant_name, amount, interval, status")
+      .select("id, merchant_name, amount, interval, status, updated_at")
       .eq("user_id", user.id);
     if (error) throw error;
     return res.json({ ok: true, subscriptions: data || [] });

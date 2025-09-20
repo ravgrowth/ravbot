@@ -33,8 +33,8 @@ export default function GrowthGap({ userId }) {
       try {
         log('[GrowthGap]', 'load start', { userId })
         const [v1, v2] = await Promise.all([
-          supabase.from('idle_cash_recommendations').select('idle_amount').eq('user_id', userId),
-          supabase.from('idle_cash_recommendations_v2').select('balance, estimated_yearly_gain').eq('user_id', userId),
+          supabase.from('idle_cash_recommendations').select('user_id, idle_amount').eq('user_id', userId),
+          supabase.from('idle_cash_recommendations_v2').select('user_id, balance, estimated_yearly_gain').eq('user_id', userId),
         ]);
         const rows = [...(v1.data || []), ...(v2.data || [])];
         const total = rows.reduce((acc, r) => acc + Number(r.idle_amount ?? r.balance ?? 0), 0);

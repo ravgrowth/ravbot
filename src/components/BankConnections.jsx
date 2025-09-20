@@ -13,7 +13,7 @@ export default function BankConnections({ userId, loadSubs }) {
       console.log('[BankConnections] fetchBanks start', { userId });
       const { data, error } = await supabase
         .from('bank_connections')
-        .select('id, institution_name, institution_id')
+        .select('user_id, id, institution_name, institution_id')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
       if (error) {
@@ -32,10 +32,9 @@ export default function BankConnections({ userId, loadSubs }) {
     const createLinkToken = async () => {
       console.log('[BankConnections] createLinkToken start');
       const res = await fetch('/api/linkToken', { method: 'POST' });
+      if (!res.ok) throw new Error('linkToken failed');
       const data = await res.json();
-      if (!res.ok) {
-        console.error('[BankConnections] createLinkToken error', data);
-      }
+      if (!data || data.error) throw new Error(data?.error || 'Bad linkToken response');
       setLinkToken(data.link_token);
       console.log('[BankConnections] createLinkToken done');
     };

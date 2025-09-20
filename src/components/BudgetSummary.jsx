@@ -14,7 +14,7 @@ export default function BudgetSummary({ userId }) {
         log('[BudgetSummary]', 'load start', { userId })
         const { data } = await supabase
           .from('user_budgets')
-          .select('rent, essentials, lifestyle, created_at')
+          .select('user_id, rent, essentials, lifestyle, created_at')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(1);

@@ -6,7 +6,7 @@ import investmentExposure from "./api/investmentExposure.js";
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
 import { createClient } from "@supabase/supabase-js";
 import logger from "./lib/logger.js";
-import { ensureCoreTables, ensureForQuery } from "./lib/schema.js";
+import { ensureCoreTables, ensureForQuery, getPool } from "./lib/schema.js";
 
 // Load server env (contains Supabase URL, keys, Plaid creds)
 dotenv.config({ path: ".env.server" });
@@ -32,8 +32,18 @@ app.use(async (req, res, next) => {
   next()
 })
 
-// Health check
+// Health checks
 app.get("/ping", (req, res) => res.json({ ok: true }));
+app.get("/health/db", async (req, res) => {
+  try {
+    const pool = getPool();
+    const out = await pool.query('select now() as now');
+    res.json({ ok: true, now: out?.rows?.[0]?.now });
+  } catch (e) {
+    logger.error('[health/db]', e?.message || e);
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
 
 // Plaid client
 const config = new Configuration({
@@ -130,7 +140,7 @@ app.post("/api/getAccounts", async (req, res) => {
   if (!token) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    console.log("[getAccounts] start", { userId, bank_connection_id: bankConnectionId });
+    console.log("[DEBUG] [getAccounts] start", { userId, bank_connection_id: bankConnectionId });
     const { data, error } = await supabase
       .from("bank_connections")
       .select("access_token")
@@ -159,7 +169,7 @@ app.post("/api/getAccounts", async (req, res) => {
 
     res.json({ accounts });
   } catch (err) {
-    console.error("[getAccounts] failed", err?.response?.data || err?.stack || err);
+    console.error("[DEBUG] [getAccounts] failed", err?.response?.data || err?.stack || err);
     res.status(500).json({ error: "Failed to fetch accounts" });
   }
 });
@@ -173,7 +183,7 @@ app.post("/api/getTransactions", async (req, res) => {
   if (!token) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    console.log("[getTransactions] start", { userId, bank_connection_id: bankConnectionId });
+    console.log("[DEBUG] [getTransactions] start", { userId, bank_connection_id: bankConnectionId });
     const { data, error } = await supabase
       .from("bank_connections")
       .select("access_token")
@@ -210,7 +220,7 @@ app.post("/api/getTransactions", async (req, res) => {
 
     res.json({ transactions: txns });
   } catch (err) {
-    console.error("[getTransactions] failed", err?.response?.data || err?.stack || err);
+    console.error("[DEBUG] [getTransactions] failed", err?.response?.data || err?.stack || err);
     res.status(500).json({ error: "Failed to fetch transactions" });
   }
 });
@@ -224,7 +234,7 @@ app.post("/api/syncSubscriptions", async (req, res) => {
   if (!token) return res.status(401).json({ error: "Unauthorized" });
 
   try {
-    console.log("[syncSubscriptions] start", { userId, bank_connection_id: bankConnectionId });
+    console.log("[DEBUG] [syncSubscriptions] start", { userId, bank_connection_id: bankConnectionId });
     const { data: conn, error: connErr } = await supabase
       .from("bank_connections")
       .select("access_token")
@@ -266,7 +276,7 @@ app.post("/api/syncSubscriptions", async (req, res) => {
 
     res.json({ ok: true, found: recurring.map(([m]) => m), inserted });
   } catch (err) {
-    console.error("[syncSubscriptions] failed", err?.response?.data || err?.stack || err);
+    console.error("[DEBUG] [syncSubscriptions] failed", err?.response?.data || err?.stack || err);
     res.status(500).json({ error: "Subscription sync failed" });
   }
 });
@@ -283,6 +293,16 @@ app.post("/api/sandbox/fireTransactions", async (req, res) => {
   } catch (err) {
     console.error("[sandbox/fireTransactions] failed", err?.response?.data || err);
     res.status(500).json({ error: "sandbox fire failed" });
+  }
+});
+
+// Global error handler (always JSON)
+app.use((err, req, res, next) => {
+  console.error("API ERROR:", err);
+  try {
+    res.status(500).json({ error: err?.message || "Unknown error" });
+  } catch (_) {
+    res.status(500).end('{"error":"Unknown error"}');
   }
 });
 
@@ -604,4 +624,5 @@ app.get('/api/logs/recent', async (req, res) => {
   }
 })
 
-app.listen(3000, () => console.log("API running on :3000"));
+const PORT = Number(process.env.PORT || 8000);
+app.listen(PORT, () => console.log(`API running on :${PORT}`));

@@ -15,7 +15,7 @@ export default function IdleCash({ userId }) {
           supabase.from('idle_cash_recommendations').select('*').eq('user_id', userId),
           supabase
             .from('idle_cash_recommendations_v2')
-            .select('balance, estimated_yearly_gain, account_name, institution_name, bank_name, suggested_target, est_apy, recommendation, apy, account_id')
+            .select('user_id, balance, estimated_yearly_gain, account_name, institution_name, bank_name, suggested_target, est_apy, recommendation, apy, account_id')
             .eq('user_id', userId),
         ]);
         const r1 = v1.data || [];
